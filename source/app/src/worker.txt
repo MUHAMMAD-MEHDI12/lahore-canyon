@@ -1,7 +1,7 @@
 // Lahore Canyon — surface energy balance, ported 1:1 from model/canyon.py
 // Runs in the browser so the what-if scenarios (cool roofs, street shade) recompute live.
 const LC = (() => {
-  const SIGMA = 5.67e-8, EPS = 0.92;
+  const SIGMA = 5.67e-8, EPS = 0.92, GUST_FRAC = 0.3, GUST_BETA = 1.2;
   const DIRS = [[-1, 0], [0, 1], [1, 0], [0, -1]]; // N, E, S, W  (drow, dcol)
   const NAZ = [0, Math.PI / 2, Math.PI, 1.5 * Math.PI];
 
@@ -60,6 +60,10 @@ const LC = (() => {
   function runDay(f, P, n, kAt, fsky, a, tau, kind, fveg, envOff, out, substeps = 4, spinup = 2) {
     const dni = f.direct_normal_irradiance, dhi = f.diffuse_radiation, ghi = f.shortwave_radiation, u10 = f.wind_speed_10m;
     const T = f.temperature_2m;
+    const blh = f.boundary_layer_height || new Array(24).fill(0);
+    // daytime convective turbulence (Deardorff velocity, ECMWF gustiness form)
+    const ueff = new Float64Array(24);
+    for (let h = 0; h < 24; h++) { const Hk = GUST_FRAC * ghi[h] / 1200, ws = Math.cbrt(9.81 / (T[h] + 273.15) * Hk * blh[h]); ueff[h] = Math.sqrt(u10[h] * u10[h] + (GUST_BETA * ws) * (GUST_BETA * ws)); }
     const ns = 24 * substeps, lag = 1 - Math.exp(-(1 / substeps) / tau);
     const Lenv = new Float64Array(ns);
     for (let i = 0; i < ns; i++) { const Te = P.ta[i] + (envOff ? envOff[P.hour[i]] : 0) + 273.15; Lenv[i] = EPS * SIGMA * Te * Te * Te * Te; }
@@ -70,7 +74,7 @@ const LC = (() => {
         for (let h = 0; h < 24; h++) {
           const k = kAt(e, h);
           const Sabs = a * (dni[h] * k + dhi[h] * fs + 0.3 * ghi[h] * (1 - fs) * 0.5);
-          const hc = 5.7 + 3.8 * (u10[h] * (0.25 + 0.75 * fo));
+          const hc = 5.7 + 3.8 * (ueff[h] * (0.25 + 0.75 * fo));
           for (let s = 0; s < substeps; s++) {
             const i = h * substeps + s;
             const Lin = fs * P.Lsky[i] + (1 - fs) * Lenv[i];

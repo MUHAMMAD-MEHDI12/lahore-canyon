@@ -155,11 +155,13 @@ def sun_flags(H, W, roofs, ground, doy, hours):
     return kw, kr, kg, lit_w
 
 # ---------------------------------------------------------------- energy balance
-# absorptivities calibrated (x0.9 of a priori 0.60/0.70/0.80) against Landsat 8 LST 2026-06-07
+# absorptivities calibrated (x1.15 of a priori 0.60/0.70/0.80) against Landsat 8 LST 2026-06-07, with convective gustiness on
+GUST_FRAC = 0.3
+GUST_BETA = 1.2
 PARAMS = {
-    'wall':   dict(a=0.54, tau=2.5),
-    'roof':   dict(a=0.63, tau=1.5),
-    'ground': dict(a=0.72, tau=3.0),
+    'wall':   dict(a=0.69, tau=2.5, hs=0.0),
+    'roof':   dict(a=0.805, tau=1.5, hs=0.0),
+    'ground': dict(a=0.92, tau=3.0, hs=0.0),
 }
 
 def sky_lw(Ta_c, rh, cloud=0.0):
@@ -169,7 +171,7 @@ def sky_lw(Ta_c, rh, cloud=0.0):
     eps_sky = 1.24 * (e / Ta) ** (1 / 7) * (1 + 0.22 * (cloud / 100) ** 2)
     return np.minimum(eps_sky, 1.0) * SIGMA * Ta ** 4
 
-def run_day(forc, k, fsky, a, tau, kind, fveg=None, Tenv_offset=None, substeps=4, spinup=2):
+def run_day(forc, k, fsky, a, tau, kind, fveg=None, Tenv_offset=None, substeps=4, spinup=2, hs=0.0):
     """Integrate surface temperature over a 24 h cycle (repeated for spin-up).
     forc: dict of 24 hourly arrays (Open-Meteo hour-ending means).
     k:    [24, n] direct-beam geometric factor (cos incidence or sin(alt), 0 if shaded).
@@ -178,8 +180,14 @@ def run_day(forc, k, fsky, a, tau, kind, fveg=None, Tenv_offset=None, substeps=4
     dni = np.array(forc['direct_normal_irradiance']); dhi = np.array(forc['diffuse_radiation'])
     ghi = np.array(forc['shortwave_radiation']); u10 = np.array(forc['wind_speed_10m'])
     cc = np.array(forc.get('cloud_cover', [0] * 24))
+    # daytime convective turbulence (Deardorff velocity, ECMWF gustiness form): deep afternoon mixing cools surfaces
+    blh = np.array(forc.get('boundary_layer_height', [0] * 24), dtype=float)
+    Hk = GUST_FRAC * ghi / 1200.0
+    wstar = np.cbrt(9.81 / (Ta + 273.15) * Hk * blh)
+    ueff = np.sqrt(u10 ** 2 + (GUST_BETA * wstar) ** 2)
     n = k.shape[1]
     Ts = np.full(n, Ta[-1])
+    Tm = float(np.mean(Ta))  # temperature of the building / ground mass
     out = np.zeros((24, n), np.float32)
     if kind == 'wall':
         fopen = np.clip(2 * fsky, 0, 1)
@@ -194,7 +202,7 @@ def run_day(forc, k, fsky, a, tau, kind, fveg=None, Tenv_offset=None, substeps=4
                 w = (s + 1) / substeps
                 ta = Ta[hp] * (1 - w) + Ta[h] * w   # temperature: instantaneous, interpolate
                 r = rh[hp] * (1 - w) + rh[h] * w
-                ua = u10[h]
+                ua = ueff[h]
                 Tak = ta + 273.15
                 Lsky = sky_lw(ta, r, cc[h])
                 Tenv = ta + (Tenv_offset[h] if Tenv_offset is not None else 0.0)
@@ -207,7 +215,7 @@ def run_day(forc, k, fsky, a, tau, kind, fveg=None, Tenv_offset=None, substeps=4
                 net = Sabs + EPS * (Lin - SIGMA * Tak ** 4)
                 if fveg is not None:
                     net = net - fveg * 0.6 * np.maximum(net, 0)
-                Teq = ta + net / (hc + hr)
+                Teq = (ta * (hc + hr) + hs * Tm + net) / (hc + hr + hs)
                 Ts = Ts + (Teq - Ts) * lag
             out[h] = Ts
     return out
@@ -229,9 +237,9 @@ def simulate(H, forc, doy, ndvi_cells=None, params=PARAMS, geom=None):
     # pass 1 with Tenv = Ta, pass 2 with Tenv = scene-mean surface excess (canyon re-radiation)
     off = None
     for _ in range(2):
-        Tw = run_day(forc, kw, geom['fw'], params['wall']['a'], params['wall']['tau'], 'wall', Tenv_offset=off)
-        Tr = run_day(forc, kr, geom['fr'], params['roof']['a'], params['roof']['tau'], 'roof', Tenv_offset=off)
-        Tg = run_day(forc, kg, geom['fg'], params['ground']['a'], params['ground']['tau'], 'ground', fveg=fveg, Tenv_offset=off)
+        Tw = run_day(forc, kw, geom['fw'], params['wall']['a'], params['wall']['tau'], 'wall', Tenv_offset=off, hs=params['wall'].get('hs', 0))
+        Tr = run_day(forc, kr, geom['fr'], params['roof']['a'], params['roof']['tau'], 'roof', Tenv_offset=off, hs=params['roof'].get('hs', 0))
+        Tg = run_day(forc, kg, geom['fg'], params['ground']['a'], params['ground']['tau'], 'ground', fveg=fveg, Tenv_offset=off, hs=params['ground'].get('hs', 0))
         Ta = np.array(forc['temperature_2m'])
         area_w = (W[:, 3] - W[:, 2]) * CELL
         tot = area_w.sum() + CELL * CELL * (len(roofs) + len(ground))
