@@ -1,0 +1,285 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Lahore Canyon · GIS Day 2026</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Newsreader:opsz,wght@6..72,400;6..72,500&family=IBM+Plex+Sans:wght@400;500&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+/* One visual world: a night-time stage over the city, single theme by choice.
+   Layout: full-bleed 3D stage, thin glass panels docked to the edges, captions low-left like a film. */
+:root {
+  --ink: #0b0e13;          /* stage */
+  --panel: rgba(16, 20, 27, 0.84);
+  --line: rgba(190, 204, 224, 0.14);
+  --paper: #ece6da;        /* text */
+  --muted: #8f99a8;
+  --heat: #ee8a45;         /* summer accent */
+  --haze: #a8b4d8;         /* winter accent */
+  --display: "Newsreader", "Iowan Old Style", "Palatino Linotype", Georgia, serif;
+  --body: "IBM Plex Sans", "Segoe UI", system-ui, sans-serif;
+  --mono: "IBM Plex Mono", ui-monospace, "Cascadia Mono", Consolas, monospace;
+  color-scheme: dark;
+}
+* { box-sizing: border-box; }
+[hidden] { display: none !important; }
+html, body { height: 100%; margin: 0; }
+body { background: var(--ink); color: var(--paper); font: 14px/1.45 var(--body); overflow: hidden; }
+button { font: inherit; color: inherit; }
+:focus-visible { outline: 2px solid var(--heat); outline-offset: 2px; }
+#stage { position: fixed; inset: 0; width: 100%; height: 100%; display: block; cursor: grab; }
+#stage:active { cursor: grabbing; }
+.eyebrow { font: 500 10.5px/1 var(--mono); letter-spacing: 0.22em; text-transform: uppercase; color: var(--muted); }
+.panel { position: fixed; background: var(--panel); border: 1px solid var(--line); border-radius: 6px; backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px); }
+.muted { color: var(--muted); }
+.seg { display: inline-flex; border: 1px solid var(--line); border-radius: 4px; overflow: hidden; }
+.seg button { background: transparent; border: 0; padding: 6px 11px; font-size: 12.5px; color: var(--muted); cursor: pointer; }
+.seg button + button { border-left: 1px solid var(--line); }
+.seg button[aria-pressed="true"] { background: rgba(236, 230, 218, 0.12); color: var(--paper); }
+.seg button:disabled { opacity: 0.35; cursor: not-allowed; }
+.btn { background: transparent; border: 1px solid var(--line); border-radius: 4px; padding: 6px 11px; font-size: 12.5px; cursor: pointer; color: var(--paper); }
+.btn:hover { border-color: rgba(236, 230, 218, 0.4); }
+
+/* top bar */
+#top { top: 12px; left: 12px; right: 12px; display: flex; align-items: center; gap: 14px; flex-wrap: wrap; padding: 8px 12px; }
+#top .brand { display: flex; flex-direction: column; gap: 3px; margin-right: auto; }
+#top .brand b { font: 500 18px/1 var(--display); letter-spacing: 0.01em; }
+
+/* left panel */
+#left { top: 76px; left: 12px; width: 272px; max-height: calc(100% - 300px); overflow-y: auto; padding: 14px; display: flex; flex-direction: column; gap: 14px; }
+#siteName { font: 500 20px/1.15 var(--display); margin: 4px 0 6px; }
+#siteMeta { font: 11.5px/1.55 var(--mono); color: var(--muted); font-variant-numeric: tabular-nums; }
+.layers { display: flex; flex-direction: column; gap: 2px; }
+.layers button { text-align: left; background: transparent; border: 0; border-left: 2px solid transparent; padding: 6px 8px; cursor: pointer; color: var(--muted); font-size: 13px; }
+.layers button[aria-pressed="true"] { color: var(--paper); border-left-color: var(--heat); background: rgba(236, 230, 218, 0.05); }
+.layers button:disabled { opacity: 0.35; cursor: not-allowed; }
+#readout { font-variant-numeric: tabular-nums; }
+.ro-time { font: 500 22px/1 var(--display); margin-bottom: 8px; }
+.ro-time span { font: 11px var(--mono); color: var(--muted); margin-left: 6px; }
+.ro-row { display: flex; justify-content: space-between; font-size: 12.5px; padding: 3px 0; border-top: 1px solid var(--line); }
+.ro-row span { color: var(--muted); }
+.whatif label { display: flex; gap: 8px; align-items: flex-start; font-size: 12.5px; padding: 4px 0; cursor: pointer; }
+.whatif input { accent-color: var(--heat); margin-top: 2px; }
+#scenStatus { font-size: 12px; color: var(--muted); margin-top: 4px; font-variant-numeric: tabular-nums; }
+#scenStatus b { color: var(--paper); font-weight: 500; }
+
+/* right panel */
+#right { top: 76px; right: 12px; width: 296px; max-height: calc(100% - 300px); overflow-y: auto; padding: 14px; display: flex; flex-direction: column; gap: 10px; }
+#right h2 { font: 500 18px/1.2 var(--display); margin: 2px 0 0; }
+#right p.sub { margin: 0; font-size: 12px; color: var(--muted); }
+.pr-item { display: grid; grid-template-columns: 20px 1fr auto; gap: 8px; align-items: center; width: 100%; text-align: left; background: transparent; border: 0; border-top: 1px solid var(--line); padding: 8px 2px; cursor: pointer; }
+.pr-item:hover { background: rgba(236, 230, 218, 0.04); }
+.pr-n { font: 11px var(--mono); color: var(--muted); }
+.pr-body { display: flex; flex-direction: column; gap: 2px; }
+.pr-title { font-size: 13px; }
+.pr-sub { font: 10.5px var(--mono); color: var(--muted); font-variant-numeric: tabular-nums; }
+.pr-score { font: 500 17px var(--display); color: var(--heat); font-variant-numeric: tabular-nums; }
+#prioDetail:empty { display: none; }
+#prioDetail { border-top: 1px solid var(--line); padding-top: 10px; }
+.pd-title { font: 500 15px var(--display); display: flex; justify-content: space-between; }
+.pd-title span { font: 11px var(--mono); color: var(--heat); }
+#prioDetail p { font-size: 12.5px; margin: 6px 0; }
+.pd-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; }
+.pd-grid div { display: flex; flex-direction: column; gap: 2px; font-variant-numeric: tabular-nums; }
+.pd-grid span { font: 10px var(--mono); color: var(--muted); text-transform: uppercase; letter-spacing: 0.08em; }
+
+/* bottom */
+#bottom { left: 12px; right: 12px; bottom: 12px; padding: 10px 14px; display: grid; grid-template-columns: 1fr 260px; gap: 16px; align-items: stretch; }
+#timeline { width: 100%; height: 118px; display: block; }
+.timebar { display: flex; align-items: center; gap: 10px; margin-top: 6px; }
+#hour { flex: 1; accent-color: var(--heat); }
+#hourLabel { font: 500 13px var(--mono); width: 44px; font-variant-numeric: tabular-nums; }
+#legend { display: flex; flex-direction: column; gap: 6px; justify-content: center; }
+.lg-name { font: 500 14px var(--display); }
+.lg-bar { height: 10px; border-radius: 2px; }
+.lg-ends { display: flex; justify-content: space-between; font: 10.5px var(--mono); color: var(--muted); }
+.lg-note { font-size: 11.5px; color: var(--muted); }
+
+/* labels, tip */
+#labels { position: fixed; inset: 0; pointer-events: none; overflow: hidden; }
+.lm { position: absolute; left: 0; top: 0; font: 10.5px var(--mono); color: #fff4d6; white-space: nowrap; letter-spacing: 0.04em; text-shadow: 0 1px 3px #000, 0 0 8px #000; }
+.lm i { display: inline-block; width: 6px; height: 6px; border: 1px solid #fff4d6; border-radius: 50%; margin: 0 6px 0 -3px; vertical-align: 0; }
+#lidLabel { position: fixed; left: 0; top: 0; font: 11px var(--mono); color: var(--haze); white-space: nowrap; pointer-events: none; text-shadow: 0 1px 3px #000; margin: -22px 0 0 0; font-size: 12px; color: #e4e9ff; }
+#tip { position: fixed; z-index: 30; pointer-events: none; background: rgba(10, 12, 16, 0.94); border: 1px solid var(--line); border-radius: 4px; padding: 7px 9px; font-size: 12px; max-width: 260px; font-variant-numeric: tabular-nums; }
+#tip span { color: var(--muted); }
+
+/* brief */
+#brief { right: 320px; top: 76px; width: min(520px, calc(100% - 640px)); min-width: 380px; padding: 16px 18px; z-index: 20; }
+.bf-head { display: flex; justify-content: space-between; gap: 12px; align-items: flex-start; }
+.bf-title { font: 500 21px/1.15 var(--display); text-wrap: balance; }
+.bf-meta { font: 11px var(--mono); color: var(--muted); margin-top: 4px; }
+.bf-close { background: transparent; border: 1px solid var(--line); border-radius: 4px; color: var(--muted); cursor: pointer; padding: 3px 8px; font-size: 12px; }
+.bf-lead { font-size: 13.5px; margin: 12px 0 10px; max-width: 62ch; }
+.bf-lead b { color: var(--heat); font-weight: 500; }
+#briefChart { width: 100%; display: block; }
+.bf-roof { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-top: 10px; border-top: 1px solid var(--line); padding-top: 10px; }
+.bf-roof div { display: flex; flex-direction: column; gap: 2px; font-variant-numeric: tabular-nums; }
+.bf-roof span { font: 10px var(--mono); color: var(--muted); text-transform: uppercase; letter-spacing: 0.08em; }
+.bf-roof b { font: 500 17px var(--display); }
+
+/* method */
+#method { inset: 70px 18% 70px 18%; z-index: 40; padding: 22px 26px; overflow-y: auto; }
+#method h2 { font: 500 26px/1.15 var(--display); margin: 6px 0 12px; }
+#method h3 { font: 500 16px var(--display); margin: 18px 0 6px; }
+#method p, #method li { max-width: 72ch; font-size: 13.5px; }
+#method a { color: var(--haze); }
+#method table { border-collapse: collapse; font-variant-numeric: tabular-nums; font-size: 13px; margin-top: 6px; }
+#method td, #method th { border-top: 1px solid var(--line); padding: 5px 14px 5px 0; text-align: left; }
+#method th { font: 500 10.5px var(--mono); color: var(--muted); text-transform: uppercase; letter-spacing: 0.08em; }
+
+/* intro */
+#intro { position: fixed; inset: 0; z-index: 50; display: grid; grid-template-columns: minmax(0, 560px) 1fr; padding: 8vh 7vw; background: linear-gradient(90deg, rgba(11, 14, 19, 0.96) 0%, rgba(11, 14, 19, 0.82) 40%, rgba(11, 14, 19, 0.15) 75%, rgba(11, 14, 19, 0) 100%); }
+#intro .inner { display: flex; flex-direction: column; justify-content: center; gap: 22px; }
+#intro h1 { font: 400 clamp(56px, 8vw, 104px)/0.95 var(--display); margin: 0; letter-spacing: -0.015em; text-wrap: balance; }
+#intro .rule { width: 64px; height: 2px; background: var(--heat); }
+#intro p.lead { font-size: 16px; line-height: 1.55; max-width: 46ch; margin: 0; color: #cfc9be; }
+#intro .actions { display: flex; gap: 12px; flex-wrap: wrap; }
+#intro .actions button { padding: 11px 18px; border-radius: 3px; font-size: 14px; cursor: pointer; }
+#startTour { background: var(--paper); color: #14161a; border: 1px solid var(--paper); }
+#startMap { background: transparent; border: 1px solid rgba(236, 230, 218, 0.4); color: var(--paper); }
+#intro button:disabled { opacity: 0.45; cursor: progress; }
+#intro .status { display: flex; justify-content: space-between; gap: 16px; border-top: 1px solid var(--line); padding-top: 10px; max-width: 470px; }
+#intro .theme { font: 12px var(--mono); color: var(--muted); letter-spacing: 0.04em; }
+
+/* walkthrough */
+#caption { display: none; left: 12px; bottom: 192px; width: min(760px, calc(100% - 340px)); padding: 16px 20px 14px; z-index: 25; }
+body.touring #caption { display: block; }
+body.touring #left, body.touring #right, body.intro #left, body.intro #right, body.intro #top, body.intro #bottom { opacity: 0; pointer-events: none; }
+body.touring #brief { right: 12px; }
+#capEye { color: var(--heat); }
+#capText { font: 400 clamp(19px, 1.7vw, 25px)/1.32 var(--display); margin: 8px 0 12px; text-wrap: pretty; }
+.capnav { display: flex; gap: 8px; align-items: center; }
+#tourCount { font: 11px var(--mono); color: var(--muted); margin-right: auto; }
+#tourStatus { font: 11px var(--mono); color: var(--muted); }
+#yearCard { left: 12px; top: 76px; width: 420px; padding: 14px; z-index: 26; }
+#yearChart { width: 100%; height: 170px; display: block; margin-top: 8px; }
+.yk { display: flex; gap: 14px; font: 10.5px var(--mono); color: var(--muted); margin-top: 6px; }
+.yk i { display: inline-block; width: 10px; height: 3px; vertical-align: middle; margin-right: 5px; }
+
+@media (max-width: 1100px) {
+  #right { display: none; }
+  #brief { right: 12px; width: calc(100% - 320px); min-width: 0; }
+  #method { inset: 60px 16px; }
+}
+@media (max-width: 760px) {
+  #left { display: none; }
+  #bottom { grid-template-columns: 1fr; }
+  #legend { display: none; }
+  #brief { left: 12px; right: 12px; width: auto; }
+  #caption { width: auto; right: 12px; bottom: 190px; }
+  #intro { grid-template-columns: 1fr; padding: 6vh 20px; }
+}
+@media (prefers-reduced-motion: reduce) { * { transition: none !important; animation: none !important; } }
+</style>
+</head>
+<body>
+<canvas id="stage" aria-label="3D model of surface temperatures in Lahore"></canvas>
+<div id="labels"></div>
+<div id="lidLabel" hidden></div>
+<div id="tip" hidden></div>
+
+<header id="top" class="panel">
+  <div class="brand"><span class="eyebrow">GIS Day 2026 · Lahore</span><b>The Lahore Canyon</b></div>
+  <div class="seg" role="group" aria-label="Study area"><button data-site="walled" aria-pressed="true">Walled City</button><button data-site="dha" aria-pressed="false">DHA Phase 2</button></div>
+  <div class="seg" role="group" aria-label="Day"><button data-day="heat" aria-pressed="true">Hottest day · 10 Jun</button><button data-day="smog" aria-pressed="false">Smog night · 10 Nov</button></div>
+  <button class="btn" id="openMethod">Data &amp; method</button>
+  <button class="btn" id="backIntro">Title</button>
+</header>
+
+<aside id="left" class="panel">
+  <div><div class="eyebrow">Study area</div><div id="siteName">Walled City</div><div id="siteMeta"></div></div>
+  <div><div class="eyebrow" style="margin-bottom:6px">Layers</div>
+    <div class="layers">
+      <button data-layer="temp" aria-pressed="true">Surface temperature</button>
+      <button data-layer="sun" aria-pressed="false">Sun and shade</button>
+      <button data-layer="sky" aria-pressed="false">Sky view</button>
+      <button data-layer="dose" aria-pressed="false">Heat dose</button>
+      <button data-layer="vent" aria-pressed="false">Street ventilation</button>
+      <button data-layer="prio" aria-pressed="false">Where to act first</button>
+    </div></div>
+  <div id="readout"></div>
+  <div class="whatif"><div class="eyebrow" style="margin-bottom:6px">What if</div>
+    <label for="wCool"><input type="checkbox" id="wCool"> Cool roofs: lime wash, absorptivity 0.63 → 0.30</label>
+    <label for="wShade"><input type="checkbox" id="wShade"> Street shade: trees or awnings block 60% of direct sun</label>
+    <div id="scenStatus">Showing today.</div></div>
+</aside>
+
+<aside id="right" class="panel">
+  <div class="eyebrow">Heat season · 10 Jun 2026</div>
+  <h2>Where to act first</h2>
+  <p class="sub">40 m blocks ranked by heat dose (60%) and floor space (40%). Each gets the lever its geometry calls for.</p>
+  <div id="prioList"></div>
+  <div id="prioDetail"></div>
+</aside>
+
+<section id="bottom" class="panel">
+  <div><canvas id="timeline" aria-label="24-hour chart"></canvas>
+    <div class="timebar"><button class="btn" id="play" aria-pressed="false">Play day</button><label for="hour" class="eyebrow">Hour</label><input type="range" id="hour" min="0" max="23" step="1" value="15"><span id="hourLabel">15:00</span></div></div>
+  <div id="legend"></div>
+</section>
+
+<section id="brief" class="panel" hidden>
+  <div class="bf-head"><div><div class="eyebrow">Building brief · floor by floor</div><div class="bf-title"></div><div class="bf-meta"></div></div><button class="bf-close">Close</button></div>
+  <div class="bf-lead"></div>
+  <canvas id="briefChart"></canvas>
+  <div class="bf-roof"></div>
+</section>
+
+<section id="yearCard" class="panel" hidden>
+  <div class="eyebrow">Lahore · Nov 2025 – Nov 2026</div>
+  <canvas id="yearChart"></canvas>
+  <div class="yk"><span><i style="background:#ee8a45"></i>Mean daily max °C (ERA5)</span><span><i style="background:#d4473f;height:6px;width:6px;border-radius:50%"></i>Hottest day</span><span><i style="background:rgba(201,178,138,0.6);height:8px"></i>PM2.5 µg/m³ (CAMS)</span></div>
+</section>
+
+<section id="caption" class="panel" aria-live="polite">
+  <div class="eyebrow" id="capEye"></div>
+  <div id="capText"></div>
+  <div class="capnav"><span id="tourCount"></span><span id="tourStatus"></span><button class="btn" id="tourPrev">Back</button><button class="btn" id="tourNext">Next</button><button class="btn" id="tourExit">Explore the map</button></div>
+</section>
+
+<section id="method" class="panel" hidden>
+  <div class="bf-head"><div class="eyebrow">Data &amp; method</div><button class="bf-close">Close</button></div>
+  <h2>How the Lahore Canyon is built</h2>
+  <p>Two 1.2 × 1.2 km tiles on a 4 m grid: the Walled City around Rang Mahal, and DHA Phase 2. Every exposed wall is cut into storey-high panels, and every roof and street cell is a surface. For each surface the model computes how much sky it sees, whether it is in direct sun each hour (by marching rays across the 3D grid), and a surface energy balance with a thermal-mass lag. The what-if scenarios rerun that balance in your browser.</p>
+  <h3>Data</h3>
+  <ul>
+    <li>Building heights: Google Open Buildings 2.5D Temporal, 2023 layer, 4 m effective resolution. <a href="https://developers.google.com/earth-engine/datasets/catalog/GOOGLE_Research_open-buildings-temporal_v1">Dataset</a></li>
+    <li>Surface temperature and vegetation: Landsat 8 Collection 2 Level-2 (ST_B10, red, NIR), scene 149/038, 7 Jun 2026 10:35 PKT, via Microsoft Planetary Computer. <a href="https://planetarycomputer.microsoft.com/dataset/landsat-c2-l2">Dataset</a></li>
+    <li>Hourly weather (air temperature, humidity, direct and diffuse sun, wind, boundary-layer height): ERA5 reanalysis via the Open-Meteo archive API. <a href="https://open-meteo.com/en/docs/historical-weather-api">API</a></li>
+    <li>PM2.5, PM10, NO₂: CAMS air-quality model via Open-Meteo. These are modelled estimates, not station measurements. <a href="https://open-meteo.com/en/docs/air-quality-api">API</a></li>
+    <li>Landmark names: © OpenStreetMap contributors. <a href="https://www.openstreetmap.org/copyright">Licence</a></li>
+  </ul>
+  <h3>Check against the satellite</h3>
+  <p>Model plan-view surface temperature at 10:35 on 7 June 2026 compared with Landsat 8 surface temperature, aggregated to 90 m. One calibration: surface absorptivity scaled by 0.9 (walls 0.54, roofs 0.63, ground 0.72).</p>
+  <table><thead><tr><th>Tile</th><th>Model median</th><th>Landsat median</th><th>Bias</th><th>RMSE (90 m)</th><th>r (90 m)</th></tr></thead>
+  <tbody><tr><td>Walled City</td><td>52.5 °C</td><td>51.6 °C</td><td>+0.7 °C</td><td>1.3 °C</td><td>0.38</td></tr>
+  <tr><td>DHA Phase 2</td><td>50.4 °C</td><td>50.1 °C</td><td>−0.1 °C</td><td>1.5 °C</td><td>0.39</td></tr></tbody></table>
+  <p>Both agree the Walled City runs hotter at mid-morning: by 1.5 °C in Landsat and 2.2 °C in the model. The spatial pattern inside each tile is only weakly captured (r ≈ 0.4): Landsat's thermal band is 100 m native, coarser than the features that drive the model.</p>
+  <h3>Limits</h3>
+  <ul>
+    <li>Air temperature and wind come from one 9 km ERA5 cell, the same for both tiles. The model maps surface heat, not street-level air temperature.</li>
+    <li>Heights are machine-learning estimates. Lanes narrower than about 4 m are not resolved, and faces snap to four compass directions.</li>
+    <li>Satellite checks are daytime only. Night-time figures are model results.</li>
+    <li>Street ventilation is a geometric index (sky view), not a pollution simulation. PM2.5 and the mixing-layer height are city-scale values.</li>
+    <li>Floor space stands in for residents; no population layer was used.</li>
+  </ul>
+</section>
+
+<section id="intro">
+  <div class="inner">
+    <div class="eyebrow">GIS Day 2026 · 18 November · Lahore</div>
+    <h1>The Lahore Canyon</h1>
+    <div class="rule"></div>
+    <p class="lead">Heat maps stop at the ground. This one climbs every wall of the Walled City, hour by hour through the hottest day of the year, then stays out on the worst smog night to ask why the air won't leave.</p>
+    <div class="actions"><button id="startTour" disabled>Watch the walkthrough</button><button id="startMap" disabled>Go straight to the map</button></div>
+    <div class="status"><span class="eyebrow" id="bootStatus">Loading…</span><span class="theme">GIS: Powering Purpose and Innovation</span></div>
+  </div>
+  <div></div>
+</section>
+
+<script type="application/json" id="pkg">__PKG__</script>
+<script>__BUNDLE__</script>
+</body>
+</html>
