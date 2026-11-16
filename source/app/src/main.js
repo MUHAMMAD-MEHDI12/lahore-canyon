@@ -107,6 +107,30 @@ lid.rotation.x = -Math.PI / 2; lid.visible = false; scene.add(lid);
 const lidEdge = new THREE.LineSegments(new THREE.EdgesGeometry(new THREE.PlaneGeometry(N * CELL, N * CELL)), new THREE.LineBasicMaterial({ color: '#e4e9ff', transparent: true, opacity: 0.95 }));
 lidEdge.rotation.x = -Math.PI / 2; lidEdge.visible = false; scene.add(lidEdge);
 
+// the sun: ball, ray to the ground and its path across the day
+const SUN_R = HALF * 1.25;
+const sunVec = (alt, az) => new THREE.Vector3(Math.sin(az) * Math.cos(alt) * SUN_R, Math.sin(alt) * SUN_R, -Math.cos(az) * Math.cos(alt) * SUN_R);
+const sunBall = new THREE.Mesh(new THREE.SphereGeometry(24, 24, 16), new THREE.MeshBasicMaterial({ color: '#ffd27a', fog: false }));
+const sunHalo = new THREE.Mesh(new THREE.SphereGeometry(46, 24, 16), new THREE.MeshBasicMaterial({ color: '#ffd27a', transparent: true, opacity: 0.22, fog: false, depthWrite: false }));
+const sunRay = new THREE.Line(new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(), new THREE.Vector3()]), new THREE.LineBasicMaterial({ color: '#ffd27a', transparent: true, opacity: 0.7, fog: false }));
+let sunPath = null;
+scene.add(sunBall, sunHalo, sunRay);
+const COMPASS = ['north', 'north-east', 'east', 'south-east', 'south', 'south-west', 'west', 'north-west'];
+function sunInfo() {
+  const day = PKG.days[state.day], h = state.hour, alt = day.alt[h], az = day.az[h];
+  return { up: alt > 2 * Math.PI / 180, alt, az, deg: Math.round(alt * 180 / Math.PI), from: COMPASS[Math.round(az * 180 / Math.PI / 45) % 8] };
+}
+function updateSun() {
+  const day = PKG.days[state.day], S = sunInfo();
+  const intro = document.body.classList.contains('intro');
+  sunBall.visible = sunHalo.visible = sunRay.visible = S.up && !intro;
+  if (sunPath) { scene.remove(sunPath); sunPath.geometry.dispose(); }
+  const pts = []; for (let k = 0; k < 24; k++) if (day.alt[k] > 0) pts.push(sunVec(day.alt[k], day.az[k]));
+  sunPath = new THREE.Line(new THREE.BufferGeometry().setFromPoints(pts), new THREE.LineDashedMaterial({ color: '#ffd27a', dashSize: 14, gapSize: 12, transparent: true, opacity: 0.5, fog: false }));
+  sunPath.computeLineDistances(); sunPath.visible = !intro; scene.add(sunPath);
+  if (S.up) { const p = sunVec(S.alt, S.az); sunBall.position.copy(p); sunHalo.position.copy(p); sunRay.geometry.setFromPoints([p, new THREE.Vector3(0, 0, 0)]); }
+}
+
 // highlight box for selected building / block
 const hiMat = new THREE.LineBasicMaterial({ color: '#fff4d6' });
 let hiObj = null;
@@ -185,11 +209,12 @@ function recolor() {
     for (let e = 0; e < nR; e++) setQuadColor(colors, e, layer === 'vent' ? grey : [70, 76, 88], SHADE.roof);
     for (let e = 0; e < nG; e++) setQuadColor(colors, nR + e, RAMP.sky(site.fg[e]), SHADE.ground);
     for (let e = 0; e < nW; e++) setQuadColor(colors, nR + nG + e, layer === 'vent' ? dark : RAMP.sky(2 * site.fw[e]), SHADE.wall[W.dir[e]] * 0.5);
-  } else if (layer === 'dose' && sim) {
-    const dose = (T, n, e) => { let s = 0; for (let k = 0; k < 24; k++) s += Math.max(T[k * n + e] - 40, 0); return s; };
-    for (let e = 0; e < nR; e++) setQuadColor(colors, e, RAMP.dose(dose(sim.Tr, nR, e) / 260), SHADE.roof);
-    for (let e = 0; e < nG; e++) setQuadColor(colors, nR + e, RAMP.dose(dose(sim.Tg, nG, e) / 260), SHADE.ground);
-    for (let e = 0; e < nW; e++) setQuadColor(colors, nR + nG + e, RAMP.dose(dose(sim.Tw, nW, e) / 260), SHADE.wall[W.dir[e]]);
+  } else if (layer === 'dose') {
+    const L = site.lit[state.day];
+    const sh = (arr, n, e) => { let s = 0; for (let k = 0; k < 24; k++) s += litBit(arr, n, k, e); return s; };
+    for (let e = 0; e < nR; e++) setQuadColor(colors, e, RAMP.dose(sh(L.r, nR, e) / 14), SHADE.roof);
+    for (let e = 0; e < nG; e++) setQuadColor(colors, nR + e, RAMP.dose(sh(L.g, nG, e) / 14), SHADE.ground);
+    for (let e = 0; e < nW; e++) setQuadColor(colors, nR + nG + e, RAMP.dose(sh(L.w, nW, e) / 14), SHADE.wall[W.dir[e]]);
   } else if (layer === 'prio' && site.tiles) {
     const T = site.tiles;
     const sc = (i) => { const t = T.byCell[i]; return t >= 0 && T.list[t].score != null ? T.list[t].score / 100 : 0; };
@@ -204,6 +229,7 @@ function recolor() {
 }
 
 function updateAtmosphere() {
+  updateSun();
   const f = PKG.days[state.day].forc, h = state.hour;
   if (state.day === 'smog') {
     const pm = f.pm2_5[h];
@@ -231,6 +257,7 @@ function siteStats(key, day, scen = 'base') {
   let peak = 0, k = 0, sunh = 0, kg = 0, green = 0;
   for (let e = 0; e < nR; e++) if (INNER(geom.roofs[e])) { let m = -99; for (let h = 0; h < 24; h++) m = Math.max(m, sim.Tr[h * nR + e]); peak += m; k++; }
   const L = site.lit[day];
+  { let rs = 0, rk = 0; for (let e = 0; e < nR; e++) if (INNER(geom.roofs[e])) { for (let h = 0; h < 24; h++) rs += litBit(L.r, nR, h, e); rk++; } out.roofSunH = rs / rk; }
   for (let e = 0; e < nG; e++) if (INNER(geom.ground[e])) { let s = 0; for (let h = 0; h < 24; h++) s += litBit(L.g, nG, h, e); sunh += s; kg++; if (site.ndvi[geom.ground[e]] > 0.3) green++; }
   const fgs = []; for (let e = 0; e < nG; e++) if (INNER(geom.ground[e])) fgs.push(site.fg[e]); fgs.sort((a, b) => a - b);
   out.roofPeak = peak / k; out.streetSunH = sunh / kg; out.greenShare = green / kg; out.fgMed = fgs[fgs.length >> 1];
@@ -271,7 +298,8 @@ function buildingBrief(site, cells, sim, day) {
   const list = Object.values(rows).sort((a, b) => a.st - b.st).map((R) => ({ st: R.st, n: R.n, peak: R.pk, meanPeak: R.pkSum / R.n, sun: R.sun / R.n, h45: R.h45 / R.n, fsky: R.fsky / R.n, dir: R.dir.map((a) => a.length ? a.reduce((x, y) => x + y, 0) / a.length : null) }));
   let roofPk = 0, roofNight = 0, k = 0, hMax = 0;
   for (const c of cells) { const e = site.roofOf[c]; if (e < 0) continue; let m = -99; for (let h = 0; h < 24; h++) m = Math.max(m, sim.Tr[h * nR + e]); roofPk += m; roofNight += sim.Tr[4 * nR + e]; k++; hMax = Math.max(hMax, site.H[c]); }
-  return { rows: list, roofPeak: roofPk / k, roofNight: roofNight / k, height: hMax, footprint: cells.length * CELL * CELL };
+  let roofSun = 0; for (const c of cells) { const e = site.roofOf[c]; if (e < 0) continue; for (let h = 0; h < 24; h++) roofSun += litBit(site.lit[day].r, nR, h, e); }
+  return { rows: list, roofPeak: roofPk / k, roofNight: roofNight / k, roofSun: roofSun / k, height: hMax, footprint: cells.length * CELL * CELL };
 }
 
 // where to act first: 40 m blocks
@@ -310,22 +338,22 @@ function computeTiles(site, sim) {
 
 // ------------------------------------------------------------------ UI: legend, readout, timeline
 const LAYERS = {
-  temp: { name: 'How hot is each surface', note: 'Temperature of every roof, wall and street at the hour on the slider. Blue is cool, dark red is hottest.' },
-  sun: { name: 'Sun or shade', note: 'Yellow surfaces are in direct sunlight at this hour; blue ones are shaded by buildings. Dark means night.' },
+  temp: { name: 'Hotter or cooler (model)', note: 'Compares surfaces at the hour on the slider: blue is cooler, dark red is hotter. It is a model estimate, so it shows a comparison, not measured degrees. Measured values are under Key numbers.' },
+  sun: { name: 'Sun or shade', note: 'Yellow surfaces are in direct sunlight at this hour; blue ones are shaded by buildings. The yellow ball is the sun, the dashed line its path today. Move the hour slider to watch the shadows turn.' },
   sky: { name: 'How much sky it sees', note: 'Share of the open sky visible from each street (bright = open, dark purple = enclosed). Narrow lanes see little sky: shaded by day, but they hold heat at night. Roofs grey, walls dimmed.' },
-  dose: { name: 'Heat load over the day', note: 'Adds up how far each surface stays above 40 °C across the day. Example: 2 hours at 50 °C = 20 °C·h.' },
+  dose: { name: 'Hours of direct sun', note: 'How many hours each roof, wall and street is in direct sunlight on this day, worked out from the real building heights and the sun\'s path.' },
   vent: { name: 'How fast smog can clear', note: 'Streets that see more open sky swap air with the atmosphere faster, so smoke and dust clear sooner. Narrow lanes trap it.' },
-  prio: { name: 'Where to act first', note: 'Each 40 m block scored 0–100: 60% from its heat load, 40% from its floor space (more floor space, more people).' }
+  prio: { name: 'Where to act first', note: 'Each 40 m block scored 0–100: 60% from how hot the model ranks it, 40% from its floor space (more floor space, more people).' }
 };
 function rampCSS(r, n = 8) { return 'linear-gradient(90deg,' + Array.from({ length: n }, (_, i) => `rgb(${r(i / (n - 1)).map(Math.round).join(',')}) ${Math.round(i / (n - 1) * 100)}%`).join(',') + ')'; }
 function ticksHTML(ticks) { return ticks.map(([p, t]) => `<span style="left:${p}%">${t}</span>`).join(''); }
 function updateLegend() {
   const L = LAYERS[state.layer]; const el = $('#legend');
   let bar = '', ticks = [];
-  if (state.layer === 'temp') { const [a, b] = TEMP_DOMAIN[state.day]; bar = rampCSS(RAMP.temp); const n = 4; ticks = Array.from({ length: n + 1 }, (_, i) => [i / n * 100, Math.round(a + (b - a) * i / n) + ' °C']); }
+  if (state.layer === 'temp') { bar = rampCSS(RAMP.temp); ticks = [[0, 'cooler'], [100, 'hotter']]; }
   else if (state.layer === 'sun') { bar = 'linear-gradient(90deg,#384868 0 50%,#ffcd80 50% 100%)'; ticks = [[0, 'shade'], [100, 'direct sun']]; }
   else if (state.layer === 'sky' || state.layer === 'vent') { bar = rampCSS(RAMP.sky); ticks = state.layer === 'vent' ? [[0, 'traps smog'], [100, 'clears fast']] : [[0, '0%'], [25, '25%'], [50, '50%'], [75, '75%'], [100, '100% sky']]; }
-  else if (state.layer === 'dose') { bar = rampCSS(RAMP.dose); ticks = [[0, '0'], [50, '130'], [100, '260 °C·h']]; }
+  else if (state.layer === 'dose') { bar = rampCSS(RAMP.dose); ticks = [[0, '0 h'], [50, '7 h'], [100, '14 h of sun']]; }
   else if (state.layer === 'prio') { bar = rampCSS(RAMP.prio); ticks = [[0, '0 low'], [50, '50'], [100, '100 act first']]; }
   el.innerHTML = `<div class="lg-name">${L.name}</div><div class="lg-bar" style="background:${bar}"></div><div class="lg-ticks">${ticksHTML(ticks)}</div><div class="lg-note">${L.note}</div>`;
 }
@@ -334,8 +362,8 @@ function updateReadout() {
   const site = SITES[state.site]; if (!site) return;
   const f = PKG.days[state.day].forc, h = state.hour;
   const st = SIM[state.site][state.day][state.scen]; const S = st && st.Tw ? (st._stats || (st._stats = siteStats(state.site, state.day, state.scen))) : null;
-  const rows = [['Air temperature', fmt(f.temperature_2m[h]) + ' °C']];
-  if (S) rows.push(['Streets (avg)', fmt(S.street[h]) + ' °C'], ['Roofs (avg)', fmt(S.roof[h]) + ' °C'], ['Walls (avg)', fmt(S.wall[h]) + ' °C']);
+  const SI = sunInfo(); void S;
+  const rows = [['Air temperature', fmt(f.temperature_2m[h]) + ' °C'], ['Sunshine', fmt(f.shortwave_radiation[h], 0) + ' W/m²'], ['Wind', fmt(f.wind_speed_10m[h]) + ' m/s'], ['Sun', SI.up ? `${SI.deg}° high, in the ${SI.from}` : 'below the horizon']];
   if (state.day === 'smog') rows.push(['PM2.5', fmt(f.pm2_5[h], 0) + ' µg/m³'], ['Air mixing height', fmt(f.boundary_layer_height[h], 0) + ' m']);
   $('#readout').innerHTML = `<div class="ro-time">${hhmm(h)} <span>PKT · ${state.day === 'heat' ? '10 Jun 2026' : '10 Nov 2026'}</span></div>` + rows.map(([k, v]) => `<div class="ro-row"><span>${k}</span><b>${v}</b></div>`).join('');
   $('#hourLabel').textContent = hhmm(h);
@@ -346,32 +374,37 @@ function drawTimeline() {
   const cv = $('#timeline'); const dpr = Math.min(window.devicePixelRatio, 2);
   const w = cv.clientWidth, hgt = cv.clientHeight; if (!w) return;
   cv.width = w * dpr; cv.height = hgt * dpr; const g = cv.getContext('2d'); g.scale(dpr, dpr); g.clearRect(0, 0, w, hgt);
-  const f = PKG.days[state.day].forc; const st = SIM[state.site][state.day][state.scen]; const S = st && st._stats;
+  const f = PKG.days[state.day].forc; const M = PKG.measured[state.site];
   const pad = { l: 34, r: 10, t: 8, b: 16 }; const W = w - pad.l - pad.r, Hh = hgt - pad.t - pad.b;
   const x = (i) => pad.l + i / 23 * W;
   g.font = '10px "IBM Plex Mono", ui-monospace, monospace'; g.textBaseline = 'middle';
+  const heat = state.day === 'heat';
+  const lo = heat ? 20 : 0, hi = heat ? 50 : 300, unit = heat ? '°C' : 'µg/m³';
+  const y = (v) => pad.t + Hh - (v - lo) / (hi - lo) * Hh;
+  // sunshine as a soft filled area behind everything (scaled to the chart height)
+  const sw = f.shortwave_radiation; g.fillStyle = 'rgba(255,205,128,0.16)'; g.beginPath(); g.moveTo(x(0), pad.t + Hh);
+  sw.forEach((v, i) => g.lineTo(x(i), pad.t + Hh - Math.min(v / 1000, 1) * Hh)); g.lineTo(x(23), pad.t + Hh); g.closePath(); g.fill();
   const series = [];
-  let lo, hi, unit;
-  if (state.day === 'heat') {
-    lo = 20; hi = 70; unit = '°C';
-    series.push({ v: f.temperature_2m, c: '#9fb3c8', n: 'Air', u: ' °C' });
-    if (S) series.push({ v: S.roof, c: '#d4473f', n: 'Roofs', u: ' °C' }, { v: S.street, c: '#ee8a45', n: 'Streets', u: ' °C' }, { v: S.wall, c: '#f3c46a', n: 'Walls', u: ' °C' });
-  } else {
-    lo = 0; hi = 300; unit = 'µg/m³';
+  if (heat) series.push({ v: f.temperature_2m, c: '#9fb3c8', n: 'Air temperature', u: ' °C' });
+  else {
     series.push({ v: f.pm2_5, c: '#c9b28a', n: 'PM2.5', u: ' µg/m³', d: 0 });
     series.push({ v: f.boundary_layer_height.map((b) => Math.min(b, 1500) / 5), raw: f.boundary_layer_height, c: '#a8b4d8', n: 'Air mixing height (scaled)', u: ' m', d: 0, dash: true });
   }
-  const y = (v) => pad.t + Hh - (v - lo) / (hi - lo) * Hh;
   g.strokeStyle = 'rgba(200,210,225,0.08)'; g.fillStyle = 'rgba(200,210,225,0.45)';
-  const ticks = state.day === 'heat' ? [20, 30, 40, 50, 60, 70] : [0, 100, 200];
-  ticks.forEach((t) => { g.beginPath(); g.moveTo(pad.l, y(t)); g.lineTo(pad.l + W, y(t)); g.stroke(); g.textAlign = 'right'; g.fillText(t, pad.l - 6, y(t)); });
+  (heat ? [20, 30, 40, 50] : [0, 100, 200]).forEach((t) => { g.beginPath(); g.moveTo(pad.l, y(t)); g.lineTo(pad.l + W, y(t)); g.stroke(); g.textAlign = 'right'; g.fillText(t, pad.l - 6, y(t)); });
   g.textAlign = 'center'; [0, 6, 12, 18, 23].forEach((i) => g.fillText(hhmm(i), x(i), hgt - 7));
-  if (state.day === 'heat') { g.strokeStyle = 'rgba(212,71,63,0.35)'; g.setLineDash([2, 3]); g.beginPath(); g.moveTo(pad.l, y(40)); g.lineTo(pad.l + W, y(40)); g.stroke(); g.setLineDash([]); }
-  $('#tlHead').innerHTML = series.map((s) => `<span><i class="${s.dash ? 'dash' : ''}" style="background:${s.c};color:${s.c}"></i>${s.n} <b style="color:var(--paper);font-weight:500">${fmt(s.raw ? s.raw[state.hour] : s.v[state.hour], s.d == null ? 1 : s.d)}${s.u || ''}</b></span>`).join('') + (state.day === 'heat' ? '<span style="margin-left:auto">dashed line = 40 °C</span>' : '');
-  series.forEach((s, si) => {
+  let head = series.map((s) => `<span><i class="${s.dash ? 'dash' : ''}" style="background:${s.c};color:${s.c}"></i>${s.n} <b style="color:var(--paper);font-weight:500">${fmt(s.raw ? s.raw[state.hour] : s.v[state.hour], s.d == null ? 1 : s.d)}${s.u || ''}</b></span>`).join('');
+  head += `<span><i style="background:rgba(255,205,128,0.5);height:8px"></i>Sunshine <b style="color:var(--paper);font-weight:500">${fmt(sw[state.hour], 0)} W/m²</b></span>`;
+  if (heat && M && M.modisPM != null) head += `<span><i style="background:#7fd3a0;width:8px;height:8px;transform:rotate(45deg)"></i>Ground measured by satellite: <b style="color:var(--paper);font-weight:500">${fmt(M.modisNight)} °C</b> at 4:30 am, <b style="color:var(--paper);font-weight:500">${fmt(M.modisPM)} °C</b> at 2:48 pm</span>`;
+  $('#tlHead').innerHTML = head;
+  series.forEach((s) => {
     g.strokeStyle = s.c; g.lineWidth = 1.6; g.setLineDash(s.dash ? [4, 3] : []); g.beginPath();
     s.v.forEach((v, i) => (i ? g.lineTo(x(i), y(v)) : g.moveTo(x(i), y(v)))); g.stroke(); g.setLineDash([]);
     g.fillStyle = s.c; g.beginPath(); g.arc(x(state.hour), y(s.v[state.hour]), 3, 0, 7); g.fill();
+  });
+  if (heat && M && M.modisPM != null) [[4.5, M.modisNight], [14.8, M.modisPM]].forEach(([t, v]) => {
+    g.fillStyle = '#7fd3a0'; g.save(); g.translate(x(t), y(v)); g.rotate(Math.PI / 4); g.fillRect(-4, -4, 8, 8); g.restore();
+    g.textAlign = 'left'; g.fillText(fmt(v) + '°', x(t) + 8, y(v));
   });
   g.strokeStyle = 'rgba(255,244,214,0.5)'; g.beginPath(); g.moveTo(x(state.hour), pad.t); g.lineTo(x(state.hour), pad.t + Hh); g.stroke();
   g.fillStyle = 'rgba(200,210,225,0.45)'; g.textAlign = 'left'; g.fillText(unit, 2, pad.t);
@@ -417,19 +450,21 @@ function pickCell(ev) {
 const tip = $('#tip');
 canvas.addEventListener('pointermove', (ev) => {
   if (state.tour) { tip.hidden = true; return; }
-  const i = pickCell(ev); const site = SITES[state.site]; const sim = currentSim();
+  const i = pickCell(ev); const site = SITES[state.site];
   if (i < 0 || !site) { tip.hidden = true; return; }
+  const L = site.lit[state.day]; const sunH = (arr, n, e) => { let s = 0; for (let k = 0; k < 24; k++) s += litBit(arr, n, k, e); return s; };
+  const now = (arr, n, e) => !sunInfo().up ? 'Night now' : (litBit(arr, n, state.hour, e) ? 'In direct sun now' : 'In shade now');
   const h = state.hour, Hh = site.H[i];
   let html = '';
   if (Hh > 0) {
     const e = site.roofOf[i];
     html = `<b>Building · ${Hh} m tall</b> (about ${Math.max(1, Math.round(Hh / 3))} storeys)`;
-    if (sim) html += `<br>Roof ${fmt(sim.Tr[h * site.nR + e])} °C at ${hhmm(h)}`;
+    html += `<br>Roof: ${now(L.r, site.nR, e)} · ${sunH(L.r, site.nR, e)} h of sun today`; void h;
     html += `<br><span>Click for the building brief</span>`;
   } else {
     const e = site.groundOf[i];
     html = `<b>Street / open ground</b><br>Sees ${fmt(site.fg[e] * 100, 0)}% of the sky`;
-    if (sim) html += ` · ${fmt(sim.Tg[h * site.nG + e])} °C`;
+    html += `<br>${now(L.g, site.nG, e)} · ${sunH(L.g, site.nG, e)} h of sun today`;
     if (site.ndvi[i] > 0.3) html += `<br><span>Green cover (trees or grass)</span>`;
   }
   tip.innerHTML = html; tip.hidden = false; tip.style.left = ev.clientX + 14 + 'px'; tip.style.top = ev.clientY + 14 + 'px';
@@ -469,17 +504,18 @@ async function openBrief(cell, title) {
   const fl = (R) => R.st === 0 ? 'ground floor' : `storey ${R.st + 1}`;
   let lead = '';
   if (!rows.length) lead = 'Its neighbours are as tall as it is, so no outside wall is exposed. See the roof figures below.';
-  else if (rows.length === 1) lead = `Only ${fl(lo)} stands above its neighbours. Its walls peak at <b>${fmt(lo.peak)} °C</b> with ${fmt(lo.sun)} hours of direct sun.`;
+  else if (rows.length === 1) lead = `Only ${fl(lo)} stands above its neighbours. Its walls get <b>${fmt(lo.sun)} hours</b> of direct sun on 10 June and see ${fmt(Math.min(lo.fsky * 200, 100), 0)}% of the open sky.`;
   else {
     lead = `Exposed walls run from the ${fl(lo)} to storey ${top.st + 1}. The lowest get <b>${fmt(lo.sun)} h</b> of direct sun on 10 June, the highest <b>${fmt(top.sun)} h</b>. `;
-    if (lo.peak > top.peak + 0.3) lead += `${lo.sun < top.sun ? 'Even so, the' : 'The'} lowest walls peak hotter, <b>${fmt(lo.peak)} °C</b> against ${fmt(top.peak)} °C: they see only ${fmt(Math.min(lo.fsky * 200, 100), 0)}% of the open sky, so heat bounces between neighbouring walls instead of escaping.`;
-    else if (top.peak > lo.peak + 0.3) lead += `The highest walls peak hotter, <b>${fmt(top.peak)} °C</b> against ${fmt(lo.peak)} °C, because they get more sun.`;
-    else lead += `Peak wall temperature is about the same top to bottom, around <b>${fmt(top.peak)} °C</b>.`;
+    const dT = Math.abs(lo.peak - top.peak);
+    if (lo.peak > top.peak + 0.3) lead += `${lo.sun < top.sun ? 'Even so, the' : 'The'} model shows the lowest walls running hotter, by about <b>${fmt(dT, 0) === '0' ? '1' : fmt(dT, 0)} °C</b>: they see only ${fmt(Math.min(lo.fsky * 200, 100), 0)}% of the open sky, so heat bounces between neighbouring walls instead of escaping.`;
+    else if (top.peak > lo.peak + 0.3) lead += `The model shows the highest walls running hotter, by about <b>${fmt(dT, 0) === '0' ? '1' : fmt(dT, 0)} °C</b>, because they get more sun.`;
+    else lead += `The model shows about the same wall heat from top to bottom.`;
   }
   $('#brief .bf-title').textContent = nm;
   $('#brief .bf-meta').textContent = `${B.height} m tall · about ${Math.max(1, Math.round(B.height / 3))} storeys · ${fmt(B.footprint, 0)} m² footprint${state.scen !== 'base' ? ' · what-if: ' + scenName(state.scen) : ''}`;
   $('#brief .bf-lead').innerHTML = lead;
-  $('#brief .bf-roof').innerHTML = `<div><span>Roof, hottest</span><b>${fmt(B.roofPeak, 0)} °C</b></div><div><span>Roof at 4 am</span><b>${fmt(B.roofNight, 0)} °C</b></div><div><span>Air at 4 am</span><b>${fmt(PKG.days.heat.forc.temperature_2m[4], 0)} °C</b></div>`;
+  $('#brief .bf-roof').innerHTML = `<div><span>Roof in direct sun</span><b>${fmt(B.roofSun)} h</b></div><div><span>Lowest walls in sun</span><b>${lo ? fmt(lo.sun) + ' h' : '–'}</b></div><div><span>Lowest walls see</span><b>${lo ? fmt(Math.min(lo.fsky * 200, 100), 0) + '% sky' : '–'}</b></div>`;
   showBriefPanel(true);
   drawBrief($('#briefChart'), rows);
   return B;
@@ -488,9 +524,9 @@ function drawBrief(cv, rows) {
   const dpr = Math.min(window.devicePixelRatio, 2); const w = cv.clientWidth; const rowH = 18; const hgt = Math.max(rows.length * rowH + 36, 80);
   cv.style.height = hgt + 'px'; cv.width = w * dpr; cv.height = hgt * dpr; const g = cv.getContext('2d'); g.scale(dpr, dpr);
   g.font = '10px "IBM Plex Mono", ui-monospace, monospace'; g.textBaseline = 'middle';
-  const x0 = 70, x1 = w - 78; const tx = (t) => x0 + (t - 35) / 20 * (x1 - x0); const sx = (s) => x1 + 10 + s / 12 * 44;
+  const x0 = 70, x1 = w - 78; const aMax = Math.max(...PKG.days.heat.forc.temperature_2m); const tx = (t) => x0 + clamp((t - (aMax - 2)) / 12, 0.02, 1) * (x1 - x0); const sx = (s) => x1 + 10 + s / 12 * 44;
   g.fillStyle = 'rgba(200,210,225,0.5)'; g.textAlign = 'center';
-  [35, 40, 45, 50, 55].forEach((t) => { g.fillText(t + '°', tx(t), 8); g.strokeStyle = 'rgba(200,210,225,0.07)'; g.beginPath(); g.moveTo(tx(t), 16); g.lineTo(tx(t), hgt - 18); g.stroke(); });
+  g.textAlign = 'left'; g.fillText('cooler', x0, 8); g.textAlign = 'right'; g.fillText('hotter', x1, 8);
   g.textAlign = 'left'; g.fillText('sun', x1 + 10, 8);
   const DC = ['#7fa6c9', '#f3c46a', '#ee8a45', '#d4473f']; const DN = ['N', 'E', 'S', 'W'];
   [...rows].reverse().forEach((R, j) => {
@@ -503,8 +539,8 @@ function drawBrief(cv, rows) {
     g.fillStyle = 'rgba(236,230,218,0.8)'; g.textAlign = 'left'; g.fillText(fmt(R.sun) + 'h', sx(R.sun) + 3, yy);
   });
   const ly = hgt - 8; let lx = 4;
-  g.textAlign = 'left'; g.fillStyle = 'rgba(212,71,63,0.8)'; g.fillRect(lx, ly - 4, 10, 8); g.fillStyle = 'rgba(200,210,225,0.7)'; g.fillText('hottest', lx + 13, ly); lx += 62;
-  DN.forEach((n, d) => { g.fillStyle = DC[d]; g.beginPath(); g.arc(lx + 3, ly, 3, 0, 7); g.fill(); g.fillStyle = 'rgba(200,210,225,0.7)'; g.fillText(n + '-facing', lx + 9, ly); lx += 56; });
+  g.textAlign = 'left'; g.fillStyle = 'rgba(212,71,63,0.8)'; g.fillRect(lx, ly - 4, 10, 8); g.fillStyle = 'rgba(200,210,225,0.7)'; g.fillText('model', lx + 13, ly); lx += 54;
+  DN.forEach((n, d) => { g.fillStyle = DC[d]; g.beginPath(); g.arc(lx + 3, ly, 3, 0, 7); g.fill(); g.fillStyle = 'rgba(200,210,225,0.7)'; g.fillText(n + ' wall', lx + 9, ly); lx += 46; });
 }
 $('#brief .bf-close').addEventListener('click', () => { showBriefPanel(false); setHighlight(null); });
 
@@ -520,7 +556,9 @@ function renderKeys() {
   h += k('Hottest air of the year', `${fmt(Y.hottestMax, 0)} °C`, 'rean', 'ERA5', `10 Jun 2026 · ${Y.daysAbove40} days at 40 °C or more in the past year`);
   h += k('Green cover (trees, grass)', `${S ? Math.round(S.greenShare * 100) : '–'}%`, 'meas', 'Landsat 8', 'of open ground, from the vegetation index');
   h += k('Covered by buildings', `${Math.round(site.builtShare * 100)}%`, 'meas', 'Google', `typical height ${site.medH} m, tallest ${site.maxH} m`);
-  if (S) h += k('Hottest roofs, 3 pm', `≈ ${fmt(S.roofPeak, 0)} °C`, 'model', 'Model', 'estimate, likely 60–68 °C. The 1 km MODIS average reads lower, so treat as an upper value');
+  if (M.modisNight != null) h += k('Before dawn, seen from space', `${fmt(M.modisNight, 1)} °C`, 'meas', 'MODIS Aqua', '10 Jun 2026, 4:30 am, 1 km average');
+  if (S) h += k('Streets in direct sun', `${fmt(S.streetSunH)} h`, 'model', 'Calculated', `on 10 June, from real building heights. Roofs: ${fmt(S.roofSunH)} h`);
+  if (S) h += k('Sky seen from the street', `${Math.round(S.fgMed * 100)}%`, 'model', 'Calculated', 'typical street, from real building heights');
   h += k('Worst smog day', `${fmt(Y.pmWorstDaily, 0)} µg/m³`, 'rean', 'CAMS', `PM2.5 on 16 Jan 2026, about 17× the WHO daily limit`);
   $('#keys').innerHTML = h;
 }
@@ -529,7 +567,7 @@ function renderKeys() {
 function renderPrio() {
   const site = SITES[state.site]; const el = $('#prioList'); if (!site || !site.tiles) { el.innerHTML = '<div class="muted">Computing…</div>'; return; }
   const top = site.tiles.ranked.slice(0, 5);
-  el.innerHTML = top.map((t, j) => `<button class="pr-item" data-t="${t.i}"><span class="pr-n">${j + 1}</span><span class="pr-body"><span class="pr-title">${t.lever.title}</span><span class="pr-sub">${t.near ? t.near + ' · ' : ''}heat load ${fmt(t.dose, 0)} °C·h · ${fmt(t.floor / 1000, 1)}k m² floors</span></span><span class="pr-score">${t.score}</span></button>`).join('');
+  el.innerHTML = top.map((t, j) => `<button class="pr-item" data-t="${t.i}"><span class="pr-n">${j + 1}</span><span class="pr-body"><span class="pr-title">${t.lever.title}</span><span class="pr-sub">${t.near ? t.near + ' · ' : ''}${fmt(t.floor / 1000, 1)}k m² of floors</span></span><span class="pr-score">${t.score}</span></button>`).join('');
   el.querySelectorAll('.pr-item').forEach((b) => b.addEventListener('click', () => focusTile(+b.dataset.t)));
 }
 function focusTile(ti, fly = true) {
@@ -538,7 +576,7 @@ function focusTile(ti, fly = true) {
   setHighlight(cells.filter((i) => site.H[i] > 0), site.H);
   const X = (t.center[1] - N / 2) * CELL, Z = (t.center[0] - N / 2) * CELL;
   if (fly) flyTo([X + 140, 170, Z + 190], [X, 10, Z], 1400);
-  $('#prioDetail').innerHTML = `<div class="pd-title">${t.lever.title} <span>score ${t.score}</span></div><p>${t.lever.text}</p><p class="muted" style="font-size:11.5px;margin:0">Heat load ${fmt(t.dose, 0)} °C·h · ${fmt(t.floor, 0)} m² of floor space${t.fgMean != null ? ` · streets see ${fmt(t.fgMean * 100, 0)}% of the sky` : ''}</p>`;
+  $('#prioDetail').innerHTML = `<div class="pd-title">${t.lever.title} <span>score ${t.score}</span></div><p>${t.lever.text}</p><p class="muted" style="font-size:11.5px;margin:0">${fmt(t.floor, 0)} m² of floor space${t.fgMean != null ? ` · streets see ${fmt(t.fgMean * 100, 0)}% of the sky` : ''}</p>`;
 }
 
 // ------------------------------------------------------------------ camera flights
@@ -578,6 +616,9 @@ function renderLabels() {
     el.style.display = vis ? '' : 'none';
     if (vis) el.style.transform = `translate(${px}px, ${py - 6}px)`;
   });
+  const sl = $('#sunLabel'), SI = sunInfo();
+  if (SI.up) { v.copy(sunBall.position).project(camera); const ok = v.z < 1 && Math.abs(v.x) < 1 && Math.abs(v.y) < 1; sl.hidden = !ok; if (ok) { sl.textContent = `Sun · ${SI.deg}° high`; sl.style.transform = `translate(${(v.x + 1) / 2 * w + 30}px, ${(1 - v.y) / 2 * h - 8}px)`; } } else sl.hidden = true;
+  const nl = $('#northLabel'); v.set(0, 0, -HALF - 40).project(camera); nl.hidden = !(v.z < 1 && Math.abs(v.x) < 1 && Math.abs(v.y) < 1); nl.style.transform = `translate(${(v.x + 1) / 2 * w - 8}px, ${(1 - v.y) / 2 * h - 8}px)`;
   const lidLabel = $('#lidLabel');
   if (lid.visible) {
     v.set(-HALF + 60, lid.position.y, HALF - 60).project(camera);
@@ -626,18 +667,16 @@ async function setSite(key, { animate = false } = {}) {
 }
 async function setDay(d) {
   state.day = d; document.querySelectorAll('[data-day]').forEach((b) => b.setAttribute('aria-pressed', b.dataset.day === d));
-  const doseBtn = document.querySelector('[data-layer="dose"]'); doseBtn.disabled = d !== 'heat';
-  if (d !== 'heat' && state.layer === 'dose') state.layer = 'temp';
-  await getSim(state.site, d, state.scen); setLayer(state.layer);
+    await getSim(state.site, d, state.scen); setLayer(state.layer);
 }
-function setLayer(l) { state.layer = l; document.querySelectorAll('[data-layer]').forEach((b) => b.setAttribute('aria-pressed', b.dataset.layer === l)); recolor(); }
+function setLayer(l) { if (l === 'sun' && state.layer !== 'sun' && !state.tour && !document.body.classList.contains('intro')) { const p = fitPose(1.45); flyTo(p[0], p[1], 1200); } state.layer = l; document.querySelectorAll('[data-layer]').forEach((b) => b.setAttribute('aria-pressed', b.dataset.layer === l)); recolor(); }
 function setHour(h) { state.hour = ((h % 24) + 24) % 24; recolor(); }
 function scenName(s) { return { base: 'today', cool: 'cool roofs', shade: 'street shade', 'cool+shade': 'cool roofs + street shade' }[s]; }
 async function setScen(s) {
   state.scen = s; $('#scenStatus').textContent = 'Recomputing every surface…';
   await getSim(state.site, state.day, s);
   const b = siteStats(state.site, state.day, 'base'); const n = siteStats(state.site, state.day, s);
-  $('#scenStatus').innerHTML = s === 'base' ? 'Showing today.' : `Roof peak ${fmt(b.roofPeak)} → <b>${fmt(n.roofPeak)} °C</b> · street at 15:00 ${fmt(b.street[15])} → <b>${fmt(n.street[15])} °C</b>`;
+  $('#scenStatus').innerHTML = s === 'base' ? 'Showing today.' : `Model estimate: roofs about <b>${fmt(Math.max(b.roofPeak - n.roofPeak, 0), 0)} °C cooler</b> at their hottest · streets about <b>${fmt(Math.max(b.street[15] - n.street[15], 0), 0)} °C cooler</b> at 3 pm`;
   recolor();
 }
 
@@ -680,7 +719,7 @@ function buildScenes() {
       cap: `A normal heat map gives one number per area. This one climbs the walls. In 1.2 × 1.2 km of the Walled City it tracks ${(W.nW).toLocaleString('en-US')} wall panels, one storey each, plus every roof and every street, hour by hour.` },
     { eye: 'III · Two cities', site: 'dha', day: 'heat', hour: 15, layer: 'temp', fit: 1, rise: true,
       cap: `Same sun, same air, 14.5 km apart. In DHA Phase 2, buildings cover ${Math.round(D.builtShare * 100)}% of the ground; in the Walled City, ${Math.round(W.builtShare * 100)}%. Typical heights: ${D.medH} m against ${W.medH} m.` },
-    { eye: 'IV · The street', site: 'walled', day: 'heat', hour: 15, layer: 'sun', cam: [[120, 260, 330], [0, 0, -20]],
+    { eye: 'IV · The street', site: 'walled', day: 'heat', hour: 15, layer: 'sun', fit: 1.45,
       cap: `On 10 June, the Walled City's streets were in direct sun for ${fmt(wh.streetSunH)} hours. DHA's streets: ${fmt(dh.streetSunH)} hours. Tall buildings on narrow lanes shade the street.` },
     { eye: 'IV · The street', site: 'walled', day: 'heat', hour: 15, layer: 'temp', cam: [[120, 260, 330], [0, 0, -20]],
       cap: `Shade alone does not keep them cool. The Landsat satellite measured the Walled City ${fmt(PKG.measured.walled.landsatMed - PKG.measured.dha.landsatMed, 1)} °C hotter than DHA. One reason: trees and grass cover ${Math.round(dh.greenShare * 100)}% of DHA's open ground, but only ${Math.round(wh.greenShare * 100)}% in the old city.` },
@@ -689,13 +728,13 @@ function buildScenes() {
     { eye: 'V · One building', site: 'walled', day: 'heat', hour: 15, layer: 'sun', cam: [[exX + 120, 130, exZ + 150], [exX, 30, exZ]], brief: ex,
       cap: `The ground floor walls get ${fmt(lo.sun)} hours of direct sun. The top floor walls get ${fmt(top.sun)} hours.` },
     { eye: 'V · One building', site: 'walled', day: 'heat', hour: 15, layer: 'temp', cam: [[exX - 90, 60, exZ + 120], [exX, 25, exZ]], brief: ex,
-      cap: `Yet the ground floor gets hotter: ${fmt(lo.peak)} °C against ${fmt(top.peak)} °C. Surrounded by neighbours, it sees only ${Math.round(Math.min(lo.fsky * 200, 100))}% of the open sky, so its heat bounces between walls instead of escaping.` },
+      cap: `Yet in the model the ground floor walls run hotter than the top ones, by about ${fmt(Math.max(lo.peak - top.peak, 1), 0)} °C. Surrounded by neighbours, they see only ${Math.round(Math.min(lo.fsky * 200, 100))}% of the open sky, so their heat bounces between walls instead of escaping.` },
     { eye: 'VI · Roofs', site: 'walled', day: 'heat', hour: 15, layer: 'temp', fit: 0.62,
-      cap: `Roofs are the hottest surfaces in the afternoon, about ${fmt(wh.roofPeak, 0)} °C in the model (likely 60–68 °C). That is the model's upper estimate: NASA's coarser MODIS satellite, averaging 1 km, reads cooler.` },
+      cap: `Roofs take the most sun: about ${fmt(wh.roofSunH)} hours on 10 June, against ${fmt(wh.streetSunH)} hours for the streets. From space, NASA's MODIS satellite measured this area's ground at ${fmt(PKG.measured.walled.modisPM)} °C at 2:48 pm.` },
     { eye: 'VI · Roofs', site: 'walled', day: 'heat', hour: 4, layer: 'temp', fit: 0.62,
-      cap: `By 4 am they are the coolest, about ${fmt(wh.roof[4], 0)} °C, below the ${fmt(PKG.days.heat.forc.temperature_2m[4], 0)} °C air, because they face the whole open sky. That is why people in the old city sleep on their roofs.` },
+      cap: `At 4:30 am the same satellite measured ${fmt(PKG.measured.walled.modisNight)} °C, cooler than the ${fmt(PKG.days.heat.forc.temperature_2m[4])} °C air. Roofs cool fastest at night because they face the whole open sky. That is why people in the old city sleep on their roofs.` },
     { eye: 'VII · What if', site: 'walled', day: 'heat', hour: 15, layer: 'temp', scen: 'cool', fit: 0.62,
-      cap: `Paint every roof white with lime wash and the model's roof peak drops from about ${fmt(wh.roofPeak, 0)} °C to ${fmt(wc.roofPeak, 0)} °C. The street below barely changes (${fmt(wh.street[15], 0)} → ${fmt(wc.street[15], 0)} °C). Each surface needs its own fix.` },
+      cap: `Paint every roof white with lime wash. In the model, roofs run about ${fmt(wh.roofPeak - wc.roofPeak, 0)} °C cooler at their hottest, but the street below cools by only about ${fmt(Math.max(wh.street[15] - wc.street[15], 0), 1)} °C. Each surface needs its own fix.` },
     { eye: 'VIII · Winter', site: 'walled', day: 'smog', hour: h22, layer: 'temp', cam: [[-430, 70, 560], [-120, 28, 160]],
       cap: `10 November, 10 pm. PM2.5 reached ${fmt(fs.pm2_5[h22], 0)} µg/m³. The layer of air that smog can mix into had shrunk to ${fmt(fs.boundary_layer_height[h22], 0)} m, about rooftop height (the pale sheet). The smoke has nowhere to go.` },
     { eye: 'VIII · Winter', site: 'walled', day: 'smog', hour: h22, layer: 'vent', cam: [[120, 260, 330], [0, 0, -20]],
@@ -706,7 +745,7 @@ function buildScenes() {
 }
 let sceneIdx = 0;
 async function startTour() {
-  $('#intro').hidden = true; document.body.classList.remove('intro'); document.body.classList.add('touring'); state.tour = true; state.idleSpin = false;
+  $('#intro').hidden = true; document.body.classList.remove('intro'); document.body.classList.add('touring'); updateSun(); state.tour = true; state.idleSpin = false;
   $('#capText').textContent = 'Preparing the walkthrough…';
   await Promise.all([getSim('walled', 'heat'), getSim('dha', 'heat'), getSim('walled', 'heat', 'cool'), getSim('walled', 'smog')]);
   if (!SITES.dha.tiles) SITES.dha.tiles = computeTiles(SITES.dha, SIM.dha.heat.base);
@@ -748,6 +787,6 @@ async function boot() {
   ensureSite('dha').then(() => { getSim('dha', 'heat'); getSim('walled', 'heat', 'cool'); getSim('walled', 'smog'); getSim('dha', 'smog'); });
 }
 $('#startTour').addEventListener('click', startTour);
-$('#startMap').addEventListener('click', () => { $('#intro').hidden = true; document.body.classList.remove('intro'); state.idleSpin = false; requestAnimationFrame(() => { resize(); const p = fitPose(); flyTo(p[0], p[1], 1600); }); });
-$('#backIntro').addEventListener('click', () => { $('#intro').hidden = false; document.body.classList.add('intro'); state.idleSpin = true; });
+$('#startMap').addEventListener('click', () => { $('#intro').hidden = true; document.body.classList.remove('intro'); updateSun(); state.idleSpin = false; requestAnimationFrame(() => { resize(); const p = fitPose(); flyTo(p[0], p[1], 1600); }); });
+$('#backIntro').addEventListener('click', () => { $('#intro').hidden = false; document.body.classList.add('intro'); updateSun(); state.idleSpin = true; });
 boot();

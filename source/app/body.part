@@ -14,7 +14,6 @@
   --display: "Newsreader", "Iowan Old Style", "Palatino Linotype", Georgia, serif;
   --body: "IBM Plex Sans", "Segoe UI", system-ui, sans-serif;
   --mono: "IBM Plex Mono", ui-monospace, "Cascadia Mono", Consolas, monospace;
-  --urdu: "Noto Nastaliq Urdu", "Jameel Noori Nastaleeq", "Urdu Typesetting", serif;
   color-scheme: dark;
 }
 * { box-sizing: border-box; }
@@ -81,6 +80,9 @@ body.touring #controls { display: none; }
 #labels { position: absolute; inset: 0; pointer-events: none; overflow: hidden; }
 .lm { position: absolute; left: 0; top: 0; font: 10.5px var(--mono); color: #fff4d6; white-space: nowrap; letter-spacing: 0.03em; text-shadow: 0 1px 3px #000, 0 0 8px #000; }
 .lm i { display: inline-block; width: 6px; height: 6px; border: 1px solid #fff4d6; border-radius: 50%; margin: 0 5px 0 -3px; }
+#sunLabel, #northLabel { position: absolute; left: 0; top: 0; font: 11.5px var(--mono); color: #ffd27a; white-space: nowrap; pointer-events: none; text-shadow: 0 1px 3px #000, 0 0 8px #000; }
+#northLabel { color: #dfe5ee; font-weight: 500; }
+body.intro #northLabel, body.intro #sunLabel { display: none; }
 #lidLabel { position: absolute; left: 0; top: 0; font: 11.5px var(--mono); color: #e4e9ff; white-space: nowrap; pointer-events: none; text-shadow: 0 1px 3px #000; margin-top: -20px; }
 #mapNote { position: absolute; left: 10px; bottom: 8px; font: 10.5px var(--mono); color: rgba(220, 226, 236, 0.6); pointer-events: none; text-shadow: 0 1px 2px #000; }
 #tip { position: fixed; z-index: 30; pointer-events: none; background: rgba(10, 12, 16, 0.95); border: 1px solid var(--line); border-radius: 4px; padding: 7px 9px; font-size: 12px; max-width: 260px; font-variant-numeric: tabular-nums; }
@@ -167,7 +169,6 @@ body.intro #mapNote { display: none; }
 #intro .rule { width: 64px; height: 2px; background: var(--heat); }
 .tagline { display: flex; flex-direction: column; gap: 4px; }
 .tagline .en { font: italic 400 clamp(22px, 2.3vw, 30px)/1.2 var(--display); color: var(--heat); }
-.tagline .ur { font: 500 clamp(17px, 1.6vw, 21px)/2 var(--urdu); color: #f2c39d; direction: rtl; text-align: left; }
 #intro p.lead { font-size: 15.5px; line-height: 1.55; max-width: 48ch; margin: 0; color: #cfc9be; }
 #intro .actions { display: flex; gap: 12px; flex-wrap: wrap; }
 #intro .actions button { padding: 11px 18px; border-radius: 3px; font-size: 14px; cursor: pointer; }
@@ -212,10 +213,10 @@ body.intro #mapNote { display: none; }
     <div><div class="eyebrow">Study area</div><div id="siteName">Walled City</div><div id="siteMeta"></div></div>
     <div><div class="eyebrow" style="margin-bottom:5px">What the colours show</div>
       <div class="layers">
-        <button data-layer="temp" aria-pressed="true">How hot is each surface</button>
+        <button data-layer="temp" aria-pressed="true">Hotter or cooler (model)</button>
         <button data-layer="sun" aria-pressed="false">Sun or shade</button>
         <button data-layer="sky" aria-pressed="false">How much sky it sees</button>
-        <button data-layer="dose" aria-pressed="false">Heat load over the day</button>
+        <button data-layer="dose" aria-pressed="false">Hours of direct sun</button>
         <button data-layer="vent" aria-pressed="false">How fast smog can clear</button>
         <button data-layer="prio" aria-pressed="false">Where to act first</button>
       </div></div>
@@ -241,26 +242,28 @@ body.intro #mapNote { display: none; }
   <canvas id="stage" aria-label="3D model of surface temperatures in Lahore"></canvas>
   <div id="labels"></div>
   <div id="lidLabel" hidden></div>
+  <div id="sunLabel" hidden></div>
+  <div id="northLabel">N ↑</div>
   <div id="mapNote">Drag to rotate · scroll to zoom · click a building for its floor-by-floor brief</div>
 </main>
 
 <aside id="right" class="panel">
   <div id="rightDefault">
     <div><div class="eyebrow" id="keysEye">Key numbers</div><h2 id="keysTitle">Walled City</h2>
-      <p class="sub"><span class="src meas">Measured</span> satellite · <span class="src rean">Weather</span> ERA5/CAMS · <span class="src model">Model</span> this app</p></div>
+      <p class="sub"><span class="src meas">Measured</span> satellite · <span class="src rean">Weather</span> ERA5/CAMS · <span class="src model">Calculated</span> from building shapes</p></div>
     <div class="keys" id="keys"></div>
     <div><div class="eyebrow">Heat season · 10 Jun 2026</div><h2>Where to act first</h2>
-      <p class="sub">Each 40 m block scored 0–100 from its heat load and floor space (more floor space, more people). Click one to fly there.</p></div>
+      <p class="sub">Each 40 m block scored 0–100 from how hot the model ranks it and its floor space (more floor space, more people). Click one to fly there.</p></div>
     <div id="prioList"></div>
     <div id="prioDetail"></div>
   </div>
   <div id="brief" hidden>
     <div class="bf-head"><div><div class="eyebrow">Building brief · floor by floor</div><div class="bf-title"></div><div class="bf-meta"></div></div><button class="bf-close">Close</button></div>
     <p class="bf-lead"></p>
-    <div class="eyebrow">Exposed walls · hottest moment and hours of sun</div>
+    <div class="eyebrow">Exposed walls · hotter or cooler (model) and hours of sun</div>
     <canvas id="briefChart"></canvas>
     <div class="bf-roof"></div>
-    <div class="bf-note">Wall and roof temperatures are model estimates for 10 June 2026.</div>
+    <div class="bf-note">Sun hours and sky share are calculated from the real building heights. The hotter/cooler bars are model estimates, shown as a comparison only.</div>
   </div>
 </aside>
 
@@ -293,8 +296,8 @@ body.intro #mapNote { display: none; }
   <tr><td>MODIS Aqua, 10 Jun, 2:48 pm, 1 km</td><td>Walled City</td><td>62.7 °C</td><td>42.3 °C</td></tr>
   <tr><td></td><td>DHA Phase 2</td><td>60.2 °C</td><td>44.1 °C</td></tr></tbody></table>
   <p>Morning and night agree within about 1.5 °C. The afternoon does not: the model is far hotter than MODIS. Part of the gap is the sensor (MODIS averages 1 km and also reads about 10 °C below Landsat in the morning), but MODIS also shows surfaces warming only 1–3 °C between morning and afternoon, while the model warms them much more. So the afternoon figures in this app are upper estimates. The patterns (which surfaces, floors and streets are hotter than others) are the reliable part.</p>
-  <h3>How sure is the roof peak?</h3>
-  <p>The model puts afternoon roofs at about 64 °C on 10 June. With twice the wind, or lighter or darker roofs, it ranges from 60 to 68 °C. Given the MODIS check above, read it as an upper value, not an exact measurement.</p>
+  <h3>What is measured and what is modelled</h3>
+  <p>Every temperature in degrees shown in this app is measured or comes from weather records: Landsat 8 and MODIS for the ground surface, ERA5 for the air. No satellite can measure a single wall or roof, so for those the model is used only to compare: which surfaces, floors and streets run hotter or cooler than others, and by roughly how much. Sun and shade, hours of sun and sky share are calculated directly from the real building heights and the sun's position.</p>
   <h3>Limits</h3>
   <ul>
     <li>Air temperature and wind come from one 9 km ERA5 cell, the same for both areas. The app maps surface heat, not the air temperature a person feels.</li>
@@ -312,7 +315,7 @@ body.intro #mapNote { display: none; }
     <div class="eyebrow">GIS Day 2026 · 18 November · Lahore</div>
     <h1>The Lahore Canyon</h1>
     <div class="rule"></div>
-    <div class="tagline"><span class="en">Heat has an address. GIS finds it.</span><span class="ur" lang="ur">گرمی کا بھی ایک پتہ ہوتا ہے۔ جی آئی ایس اسے ڈھونڈ لیتا ہے۔</span></div>
+    <div class="tagline"><span class="en">Heat has an address. GIS finds it.</span></div>
     <p class="lead">A 3D map of every wall, roof and street in Lahore's Walled City, hour by hour through the hottest day of 2026, and again on the worst smog night, compared with DHA.</p>
     <div class="actions"><button id="startTour" class="primary" disabled>Watch the walkthrough</button><button id="startMap" disabled>Go straight to the map</button></div>
     <div id="bootStatus">Loading…</div>

@@ -14,7 +14,9 @@ Developed by **Muhammad Mehdi** & **Hussain Ahmad**, BS Geography, 7th Semester 
 - 3D model of two 1.2 × 1.2 km tiles on a 4 m grid; every wall split into storey-high panels (189,090 in the Walled City)
 - Hourly sun/shade by ray marching, sky view factor, and a surface energy balance per surface
 - 14-scene guided walkthrough, floor-by-floor building briefs, what-if scenarios (cool roofs, street shade) recomputed in the browser, and a "where to act first" ranking
-- Checked against two satellites: Landsat 8 at 10:35 am (model 51.3 °C vs 51.6 °C measured, Walled City) and MODIS Aqua at night (28.5 °C vs 27.1 °C). In the afternoon MODIS (1 km) reads much cooler than the model, so afternoon values are shown as upper estimates
+- Checked against two satellites: Landsat 8 at 10:35 am (model 51.3 °C vs 51.6 °C measured, Walled City) and MODIS Aqua at night (28.5 °C vs 27.1 °C). In the afternoon MODIS (1 km) reads much cooler than the model, so the app shows only measured temperatures in degrees and uses the model to compare surfaces (hotter or cooler)
+
+- The sun is drawn in the 3D scene with its path for the day; shadows follow the hour slider
 
 ## Data
 - Building heights: Google Open Buildings 2.5D Temporal (2023)
