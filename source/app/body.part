@@ -1,16 +1,15 @@
 <style>
-/* One visual world: a night-time stage over the city, single theme by choice.
-   Layout: a fixed grid. Header on top, controls column left, map in the middle,
-   numbers column right, time bar below. Nothing ever floats over the map. */
+/* Night stage over the city, single theme by choice.
+   Layout: header / [map | side panel] / time bar. Nothing floats over the map.
+   Type scales with the screen: ~15px on a laptop, ~18px on a 1080p projector, 14px on phones. */
 :root {
   --ink: #0b0e13;
   --panel: #12161d;
-  --panel2: #171c25;
-  --line: rgba(190, 204, 224, 0.14);
+  --line: rgba(190, 204, 224, 0.15);
   --paper: #ece6da;
-  --muted: #8f99a8;
+  --muted: #9aa3b1;
   --heat: #ee8a45;
-  --haze: #a8b4d8;
+  --sun: #ffd27a;
   --display: "Newsreader", "Iowan Old Style", "Palatino Linotype", Georgia, serif;
   --body: "IBM Plex Sans", "Segoe UI", system-ui, sans-serif;
   --mono: "IBM Plex Mono", ui-monospace, "Cascadia Mono", Consolas, monospace;
@@ -18,181 +17,159 @@
 }
 * { box-sizing: border-box; }
 [hidden] { display: none !important; }
-html, body { height: 100%; margin: 0; }
+html { font-size: clamp(14px, 0.42vw + 9.5px, 22px); height: 100%; }
 body {
-  background: var(--ink); color: var(--paper); font: 13.5px/1.45 var(--body); overflow: hidden;
-  display: grid; gap: 8px; padding: 8px;
-  grid-template-columns: 272px minmax(0, 1fr) 318px;
+  margin: 0; height: 100%; overflow: hidden; background: var(--ink); color: var(--paper);
+  font: 1rem/1.45 var(--body);
+  display: grid; gap: 0.5rem; padding: 0.5rem;
+  grid-template-columns: minmax(0, 1fr) 24rem;
   grid-template-rows: auto minmax(0, 1fr) auto;
 }
 button { font: inherit; color: inherit; }
 :focus-visible { outline: 2px solid var(--heat); outline-offset: 2px; }
-.panel { background: var(--panel); border: 1px solid var(--line); border-radius: 6px; min-height: 0; }
-.eyebrow { font: 500 10.5px/1.3 var(--mono); letter-spacing: 0.18em; text-transform: uppercase; color: var(--muted); }
-.muted { color: var(--muted); }
-.seg { display: inline-flex; border: 1px solid var(--line); border-radius: 4px; overflow: hidden; }
-.seg button { background: transparent; border: 0; padding: 6px 11px; font-size: 12.5px; color: var(--muted); cursor: pointer; }
+.panel { background: var(--panel); border: 1px solid var(--line); border-radius: 0.4rem; min-height: 0; }
+.eyebrow { font: 500 0.72rem/1.3 var(--mono); letter-spacing: 0.14em; text-transform: uppercase; color: var(--muted); }
+.btn { background: transparent; border: 1px solid var(--line); border-radius: 0.3rem; padding: 0.4rem 0.75rem; font-size: 0.9rem; cursor: pointer; color: var(--paper); white-space: nowrap; }
+.btn:hover { border-color: rgba(236, 230, 218, 0.45); }
+.btn.primary { background: var(--paper); color: #14161a; border-color: var(--paper); font-weight: 500; }
+.seg { display: inline-flex; border: 1px solid var(--line); border-radius: 0.3rem; overflow: hidden; }
+.seg button { background: transparent; border: 0; padding: 0.4rem 0.75rem; font-size: 0.9rem; color: var(--muted); cursor: pointer; white-space: nowrap; }
 .seg button + button { border-left: 1px solid var(--line); }
-.seg button[aria-pressed="true"] { background: rgba(236, 230, 218, 0.12); color: var(--paper); }
-.btn { background: transparent; border: 1px solid var(--line); border-radius: 4px; padding: 6px 11px; font-size: 12.5px; cursor: pointer; color: var(--paper); }
-.btn:hover { border-color: rgba(236, 230, 218, 0.4); }
-.btn.primary { background: var(--paper); color: #14161a; border-color: var(--paper); }
-.src { display: inline-block; font: 500 9.5px/1 var(--mono); letter-spacing: 0.06em; text-transform: uppercase; padding: 3px 5px; border-radius: 3px; vertical-align: 1px; white-space: nowrap; }
-.src.meas { background: rgba(110, 180, 140, 0.18); color: #9fd7b3; }
-.src.rean { background: rgba(140, 160, 210, 0.18); color: #b6c3ea; }
-.src.model { background: rgba(238, 138, 69, 0.16); color: #f2b07f; }
+.seg button[aria-pressed="true"] { background: rgba(236, 230, 218, 0.13); color: var(--paper); }
+.tag { display: inline-block; font: 500 0.66rem/1 var(--mono); letter-spacing: 0.05em; text-transform: uppercase; padding: 0.22rem 0.35rem; border-radius: 0.2rem; vertical-align: 0.1rem; white-space: nowrap; }
+.tag.meas { background: rgba(110, 190, 145, 0.2); color: #a6e0bd; }
+.tag.calc { background: rgba(255, 210, 122, 0.16); color: #ffd99a; }
+.tag.model { background: rgba(238, 138, 69, 0.18); color: #f5b88c; }
 
 /* header */
-#top { grid-column: 1 / -1; display: flex; align-items: center; gap: 12px; flex-wrap: wrap; padding: 5px 12px; }
-#top .brand { display: flex; flex-direction: column; gap: 2px; margin-right: auto; }
-#top .brand b { font: 500 18px/1.1 var(--display); }
+#top { grid-column: 1 / -1; display: flex; align-items: center; gap: 0.6rem; flex-wrap: wrap; padding: 0.4rem 0.7rem; }
+#top .brand { display: flex; flex-direction: column; margin-right: auto; }
+#top .brand b { font: 500 1.25rem/1.1 var(--display); }
 
-/* left column */
-#left { grid-column: 1; grid-row: 2; overflow-y: auto; padding: 12px 14px; display: flex; flex-direction: column; gap: 14px; }
-#siteName { font: 500 19px/1.15 var(--display); margin: 3px 0 4px; }
-#siteMeta { font-size: 12px; color: var(--muted); }
-.layers { display: flex; flex-direction: column; gap: 1px; }
-.layers button { text-align: left; background: transparent; border: 0; border-left: 2px solid transparent; padding: 5px 8px; cursor: pointer; color: var(--muted); font-size: 13px; }
-.layers button[aria-pressed="true"] { color: var(--paper); border-left-color: var(--heat); background: rgba(236, 230, 218, 0.05); }
-.layers button:disabled { opacity: 0.35; cursor: not-allowed; }
-.whatif label { display: flex; gap: 8px; align-items: flex-start; font-size: 12.5px; padding: 3px 0; cursor: pointer; }
-.whatif input { accent-color: var(--heat); margin-top: 3px; }
-#scenStatus { font-size: 12px; color: var(--muted); margin-top: 4px; font-variant-numeric: tabular-nums; }
-#scenStatus b { color: var(--paper); font-weight: 500; }
-
-/* walkthrough panel (replaces controls in the left column) */
-#controls { display: flex; flex-direction: column; gap: 14px; }
-#tourPanel { display: none; flex-direction: column; gap: 12px; }
-body.touring #tourPanel { display: flex; }
-body.touring #controls { display: none; }
-#capEye { color: var(--heat); }
-#capText { font: 400 18px/1.38 var(--display); text-wrap: pretty; }
-.capnav { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; }
-#tourCount { font: 11px var(--mono); color: var(--muted); margin-right: auto; }
-#yearChart { width: 100%; height: 150px; display: block; }
-.yk { display: flex; flex-wrap: wrap; gap: 4px 12px; font: 10px var(--mono); color: var(--muted); }
-.yk i { display: inline-block; width: 10px; height: 3px; vertical-align: middle; margin-right: 5px; }
-
-/* map */
-#stageWrap { grid-column: 2; grid-row: 2; position: relative; overflow: hidden; border-radius: 6px; border: 1px solid var(--line); min-height: 0; }
+/* map column */
+#mapCol { grid-column: 1; grid-row: 2; display: flex; flex-direction: column; gap: 0.4rem; min-height: 0; }
+#mapBar { display: flex; align-items: center; gap: 0.6rem; flex-wrap: wrap; padding: 0.35rem 0.7rem; font-size: 0.88rem; }
+#mapBar .what { font-weight: 500; }
+#mapBar .when { color: var(--muted); }
+#aqi { margin-left: auto; display: inline-flex; align-items: center; gap: 0.45rem; padding: 0.2rem 0.55rem; border-radius: 0.3rem; font-weight: 500; color: #fff; }
+#stageWrap { position: relative; flex: 1; min-height: 0; overflow: hidden; border-radius: 0.4rem; border: 1px solid var(--line); }
 #stage { position: absolute; inset: 0; width: 100%; height: 100%; display: block; cursor: grab; }
 #stage:active { cursor: grabbing; }
 #labels { position: absolute; inset: 0; pointer-events: none; overflow: hidden; }
-.lm { position: absolute; left: 0; top: 0; font: 10.5px var(--mono); color: #fff4d6; white-space: nowrap; letter-spacing: 0.03em; text-shadow: 0 1px 3px #000, 0 0 8px #000; }
-.lm i { display: inline-block; width: 6px; height: 6px; border: 1px solid #fff4d6; border-radius: 50%; margin: 0 5px 0 -3px; }
-#sunLabel, #northLabel { position: absolute; left: 0; top: 0; font: 11.5px var(--mono); color: #ffd27a; white-space: nowrap; pointer-events: none; text-shadow: 0 1px 3px #000, 0 0 8px #000; }
-#northLabel { color: #dfe5ee; font-weight: 500; }
-body.intro #northLabel, body.intro #sunLabel { display: none; }
-#lidLabel { position: absolute; left: 0; top: 0; font: 11.5px var(--mono); color: #e4e9ff; white-space: nowrap; pointer-events: none; text-shadow: 0 1px 3px #000; margin-top: -20px; }
-#mapNote { position: absolute; left: 10px; bottom: 8px; font: 10.5px var(--mono); color: rgba(220, 226, 236, 0.6); pointer-events: none; text-shadow: 0 1px 2px #000; }
-#tip { position: fixed; z-index: 30; pointer-events: none; background: rgba(10, 12, 16, 0.95); border: 1px solid var(--line); border-radius: 4px; padding: 7px 9px; font-size: 12px; max-width: 260px; font-variant-numeric: tabular-nums; }
-#tip span { color: var(--muted); }
+.lm { position: absolute; left: 0; top: 0; font: 0.74rem var(--mono); color: #fff4d6; white-space: nowrap; text-shadow: 0 1px 3px #000, 0 0 8px #000; }
+.lm i { display: inline-block; width: 0.42rem; height: 0.42rem; border: 1px solid #fff4d6; border-radius: 50%; margin: 0 0.35rem 0 -0.2rem; }
+#sunLabel, #northLabel, #lidLabel { position: absolute; left: 0; top: 0; font: 500 0.8rem var(--mono); white-space: nowrap; pointer-events: none; text-shadow: 0 1px 3px #000, 0 0 8px #000; }
+#sunLabel { color: var(--sun); }
+#northLabel { color: #dfe5ee; }
+#lidLabel { color: #e6dccb; margin-top: -1.3rem; }
+#tip { position: fixed; z-index: 30; pointer-events: none; background: rgba(10, 12, 16, 0.96); border: 1px solid var(--line); border-radius: 0.3rem; padding: 0.45rem 0.6rem; font-size: 0.82rem; max-width: 18rem; font-variant-numeric: tabular-nums; }
+#tip .s { color: var(--muted); }
 
-/* right column */
-#right { grid-column: 3; grid-row: 2; overflow-y: auto; padding: 12px 14px; display: flex; flex-direction: column; gap: 12px; }
-#right h2 { font: 500 17px/1.2 var(--display); margin: 2px 0 0; }
-#right p.sub { margin: 2px 0 0; font-size: 12px; color: var(--muted); }
-.keys { display: flex; flex-direction: column; }
-.key { display: grid; grid-template-columns: 1fr auto; gap: 2px 10px; padding: 7px 0; border-top: 1px solid var(--line); }
-.key .k { font-size: 12.5px; }
-.key .v { font: 500 16px/1.1 var(--display); text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
-.key .s { grid-column: 1 / -1; font-size: 11px; color: var(--muted); }
-.pr-item { display: grid; grid-template-columns: 18px 1fr auto; gap: 8px; align-items: center; width: 100%; text-align: left; background: transparent; border: 0; border-top: 1px solid var(--line); padding: 7px 2px; cursor: pointer; }
-.pr-item:hover { background: rgba(236, 230, 218, 0.04); }
-.pr-n { font: 11px var(--mono); color: var(--muted); }
-.pr-body { display: flex; flex-direction: column; gap: 1px; }
-.pr-title { font-size: 13px; }
-.pr-sub { font-size: 11px; color: var(--muted); font-variant-numeric: tabular-nums; }
-.pr-score { font: 500 17px var(--display); color: var(--heat); font-variant-numeric: tabular-nums; }
-#prioDetail:empty { display: none; }
-#prioDetail { border-top: 1px solid var(--line); padding-top: 8px; }
-.pd-title { font: 500 15px var(--display); display: flex; justify-content: space-between; }
-.pd-title span { font: 11px var(--mono); color: var(--heat); }
-#prioDetail p { font-size: 12.5px; margin: 5px 0; }
-
-/* building brief (in the right column) */
-#rightDefault { display: flex; flex-direction: column; gap: 12px; }
-#brief { display: flex; flex-direction: column; gap: 10px; }
-.bf-head { display: flex; justify-content: space-between; gap: 10px; align-items: flex-start; }
-.bf-title { font: 500 18px/1.15 var(--display); text-wrap: balance; }
-.bf-meta { font-size: 11.5px; color: var(--muted); margin-top: 3px; }
-.bf-close { background: transparent; border: 1px solid var(--line); border-radius: 4px; color: var(--muted); cursor: pointer; padding: 3px 8px; font-size: 12px; }
-.bf-lead { font-size: 13px; margin: 0; }
-.bf-lead b { color: var(--heat); font-weight: 500; }
-#briefChart { width: 100%; display: block; }
-.bf-roof { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; border-top: 1px solid var(--line); padding-top: 8px; }
-.bf-roof div { display: flex; flex-direction: column; gap: 2px; font-variant-numeric: tabular-nums; }
-.bf-roof span { font-size: 10.5px; color: var(--muted); }
-.bf-roof b { font: 500 16px var(--display); }
-.bf-note { font-size: 11px; color: var(--muted); }
-
-/* bottom bar */
-#bottom { grid-column: 1 / -1; grid-row: 3; padding: 7px 12px; display: grid; grid-template-columns: 210px minmax(0, 1fr) 270px; gap: 18px; align-items: stretch; }
-#readout { font-variant-numeric: tabular-nums; }
-.ro-time { font: 500 20px/1 var(--display); margin-bottom: 6px; }
-.ro-time span { font: 11px var(--mono); color: var(--muted); margin-left: 5px; }
-.ro-row { display: flex; justify-content: space-between; gap: 8px; font-size: 12px; padding: 1px 0; border-top: 1px solid var(--line); }
-.ro-row span { color: var(--muted); }
-.tl-head { display: flex; flex-wrap: wrap; gap: 4px 14px; font-size: 11.5px; color: var(--muted); margin-bottom: 2px; }
-.tl-head i { display: inline-block; width: 14px; height: 2px; vertical-align: middle; margin-right: 5px; }
-.tl-head i.dash { background: repeating-linear-gradient(90deg, currentColor 0 4px, transparent 4px 7px) !important; height: 2px; }
-#timeline { width: 100%; height: 82px; display: block; }
-.timebar { display: flex; align-items: center; gap: 10px; margin-top: 4px; }
-#hour { flex: 1; accent-color: var(--heat); }
-#hourLabel { font: 500 13px var(--mono); width: 44px; font-variant-numeric: tabular-nums; }
-#legend { display: flex; flex-direction: column; gap: 5px; justify-content: center; }
-.lg-name { font: 500 14px var(--display); }
-.lg-bar { height: 10px; border-radius: 2px; }
-.lg-ticks { position: relative; height: 13px; font: 10px var(--mono); color: var(--muted); }
+/* side panel */
+#side { grid-column: 2; grid-row: 2; overflow-y: auto; padding: 0.8rem 0.9rem; display: flex; flex-direction: column; gap: 1rem; }
+.sec { display: flex; flex-direction: column; gap: 0.45rem; }
+.sec + .sec { border-top: 1px solid var(--line); padding-top: 0.9rem; }
+.layers { display: flex; flex-direction: column; gap: 0.15rem; }
+.layers button { display: flex; justify-content: space-between; align-items: center; gap: 0.5rem; text-align: left; background: transparent; border: 0; border-left: 3px solid transparent; padding: 0.4rem 0.55rem; cursor: pointer; color: var(--muted); font-size: 0.95rem; }
+.layers button[aria-pressed="true"] { color: var(--paper); border-left-color: var(--heat); background: rgba(236, 230, 218, 0.06); }
+.layers button:disabled { opacity: 0.35; cursor: not-allowed; }
+.lg-bar { height: 0.7rem; border-radius: 0.15rem; }
+.lg-ticks { position: relative; height: 1rem; font: 0.72rem var(--mono); color: var(--muted); }
 .lg-ticks span { position: absolute; top: 0; transform: translateX(-50%); white-space: nowrap; }
 .lg-ticks span:first-child { transform: none; }
 .lg-ticks span:last-child { transform: translateX(-100%); }
-.lg-note { font-size: 11.5px; color: #b9c0cb; line-height: 1.4; }
+.lg-note { font-size: 0.86rem; color: #c3c9d2; margin: 0; }
+.key { display: grid; grid-template-columns: 1fr auto; gap: 0.1rem 0.6rem; padding: 0.5rem 0; border-top: 1px solid var(--line); }
+.key:first-child { border-top: 0; }
+.key .k { font-size: 0.9rem; }
+.key .v { font: 500 1.15rem/1.1 var(--display); text-align: right; white-space: nowrap; font-variant-numeric: tabular-nums; }
+.key .s { grid-column: 1 / -1; font-size: 0.76rem; color: var(--muted); }
+.src-list { margin: 0; padding-left: 1.1rem; font-size: 0.82rem; color: #c3c9d2; display: flex; flex-direction: column; gap: 0.35rem; }
+.src-list b { color: var(--paper); font-weight: 500; }
+#whatStatus { font-size: 0.86rem; color: #c3c9d2; margin: 0; }
+#whatStatus b { color: var(--paper); font-weight: 500; }
 
-/* method */
-#method { position: fixed; inset: 56px 14% 40px 14%; z-index: 40; padding: 22px 26px; overflow-y: auto; background: #12161d; box-shadow: 0 20px 60px rgba(0, 0, 0, 0.6); }
-#method h2 { font: 500 26px/1.15 var(--display); margin: 6px 0 12px; }
-#method h3 { font: 500 16px var(--display); margin: 18px 0 6px; }
-#method p, #method li { max-width: 72ch; font-size: 13.5px; }
-#method a { color: var(--haze); }
-#method table { border-collapse: collapse; font-variant-numeric: tabular-nums; font-size: 13px; margin-top: 6px; }
-#method td, #method th { border-top: 1px solid var(--line); padding: 5px 14px 5px 0; text-align: left; }
-#method th { font: 500 10.5px var(--mono); color: var(--muted); text-transform: uppercase; letter-spacing: 0.08em; }
+/* walkthrough (top of the side panel) */
+#tourBox { display: none; }
+body.touring #tourBox { display: flex; }
+#capEye { color: var(--heat); }
+#capText { font: 400 1.22rem/1.4 var(--display); margin: 0; }
+.capnav { display: flex; gap: 0.4rem; align-items: center; }
+#tourCount { font: 0.78rem var(--mono); color: var(--muted); margin-right: auto; }
+#yearChart { width: 100%; height: 9rem; display: block; }
+.yk { display: flex; flex-wrap: wrap; gap: 0.2rem 0.8rem; font: 0.72rem var(--mono); color: var(--muted); }
+.yk i { display: inline-block; width: 0.7rem; height: 0.2rem; vertical-align: middle; margin-right: 0.3rem; }
 
-/* title screen: map fills the window behind it */
-body.intro #top, body.intro #left, body.intro #right, body.intro #bottom { display: none; }
-body.intro #stageWrap { grid-column: 1 / -1; grid-row: 1 / -1; border: 0; }
-body.intro #mapNote { display: none; }
-#intro { position: fixed; inset: 0; z-index: 50; display: grid; grid-template-columns: minmax(0, 600px) 1fr; padding: 6vh 6vw; background: linear-gradient(90deg, rgba(11, 14, 19, 0.97) 0%, rgba(11, 14, 19, 0.86) 42%, rgba(11, 14, 19, 0.1) 78%, rgba(11, 14, 19, 0) 100%); }
-#intro .inner { display: flex; flex-direction: column; justify-content: center; gap: 15px; }
-#intro h1 { font: 400 clamp(52px, 7.5vw, 100px)/0.95 var(--display); margin: 0; letter-spacing: -0.015em; }
-#intro .rule { width: 64px; height: 2px; background: var(--heat); }
-.tagline { display: flex; flex-direction: column; gap: 4px; }
-.tagline .en { font: italic 400 clamp(22px, 2.3vw, 30px)/1.2 var(--display); color: var(--heat); }
-#intro p.lead { font-size: 15.5px; line-height: 1.55; max-width: 48ch; margin: 0; color: #cfc9be; }
-#intro .actions { display: flex; gap: 12px; flex-wrap: wrap; }
-#intro .actions button { padding: 11px 18px; border-radius: 3px; font-size: 14px; cursor: pointer; }
-#startTour { background: var(--paper); color: #14161a; border: 1px solid var(--paper); font-weight: 500; }
-#startMap { background: transparent; border: 1px solid rgba(236, 230, 218, 0.4); color: var(--paper); }
+/* building brief */
+.bf-head { display: flex; justify-content: space-between; gap: 0.6rem; align-items: flex-start; }
+.bf-title { font: 500 1.15rem/1.15 var(--display); }
+.bf-meta { font-size: 0.8rem; color: var(--muted); }
+.bf-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 0.5rem; }
+.bf-grid div { display: flex; flex-direction: column; gap: 0.1rem; }
+.bf-grid span { font-size: 0.76rem; color: var(--muted); }
+.bf-grid b { font: 500 1.1rem var(--display); }
+#briefChart { width: 100%; display: block; }
+.bf-note { font-size: 0.78rem; color: var(--muted); margin: 0; }
+
+/* time bar */
+#bottom { grid-column: 1 / -1; grid-row: 3; padding: 0.35rem 0.8rem; display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 0.3rem 1rem; align-items: center; }
+#clock { display: flex; align-items: baseline; gap: 0.5rem; }
+#clock b { font: 500 1.6rem/1 var(--display); font-variant-numeric: tabular-nums; }
+#clock span { font: 0.78rem var(--mono); color: var(--muted); }
+.tl-head { display: flex; flex-wrap: wrap; gap: 0.15rem 1rem; font-size: 0.84rem; color: var(--muted); }
+.tl-head b { color: var(--paper); font-weight: 500; }
+.tl-head i { display: inline-block; width: 0.9rem; height: 0.18rem; vertical-align: middle; margin-right: 0.35rem; }
+#timeline { width: 100%; height: 3.6rem; display: block; grid-column: 1 / -1; }
+.timebar { grid-column: 1 / -1; display: flex; align-items: center; gap: 0.7rem; }
+#hour { flex: 1; accent-color: var(--heat); height: 1.2rem; }
+
+/* sources modal */
+#sources { position: fixed; inset: 4rem 12% 3rem; z-index: 40; padding: 1.3rem 1.6rem; overflow-y: auto; box-shadow: 0 1.2rem 4rem rgba(0, 0, 0, 0.6); }
+#sources h2 { font: 500 1.6rem/1.15 var(--display); margin: 0.3rem 0 0.8rem; }
+#sources h3 { font: 500 1.05rem var(--display); margin: 1.1rem 0 0.4rem; }
+#sources p, #sources li { max-width: 70ch; font-size: 0.95rem; }
+#sources a { color: #b9c6ec; }
+#sources table { border-collapse: collapse; font-size: 0.9rem; }
+#sources td, #sources th { border-top: 1px solid var(--line); padding: 0.4rem 1rem 0.4rem 0; text-align: left; vertical-align: top; }
+#sources th { font: 500 0.72rem var(--mono); color: var(--muted); text-transform: uppercase; letter-spacing: 0.08em; }
+
+/* title screen */
+body.intro #top, body.intro #side, body.intro #bottom, body.intro #mapBar { display: none; }
+body.intro #mapCol { grid-column: 1 / -1; grid-row: 1 / -1; }
+body.intro #stageWrap { border: 0; }
+body.intro #northLabel, body.intro #sunLabel { display: none; }
+#intro { position: fixed; inset: 0; z-index: 50; display: grid; grid-template-columns: minmax(0, 40rem) 1fr; padding: 6vh 6vw; background: linear-gradient(90deg, rgba(11, 14, 19, 0.97) 0%, rgba(11, 14, 19, 0.86) 42%, rgba(11, 14, 19, 0.1) 78%, rgba(11, 14, 19, 0) 100%); }
+#intro .inner { display: flex; flex-direction: column; justify-content: center; gap: 1rem; }
+#intro h1 { font: 400 clamp(3rem, 7vw, 6.5rem)/0.95 var(--display); margin: 0; letter-spacing: -0.015em; }
+#intro .rule { width: 4rem; height: 2px; background: var(--heat); }
+#intro .tagline { font: italic 400 clamp(1.4rem, 2.3vw, 2.1rem)/1.2 var(--display); color: var(--heat); margin: 0; }
+#intro p.lead { font-size: 1.05rem; line-height: 1.55; max-width: 46ch; margin: 0; color: #cfc9be; }
+#intro .actions { display: flex; gap: 0.8rem; flex-wrap: wrap; }
+#intro .actions button { padding: 0.7rem 1.1rem; font-size: 1rem; }
 #intro button:disabled { opacity: 0.45; cursor: progress; }
-#bootStatus { font: 11px var(--mono); color: var(--muted); letter-spacing: 0.06em; min-height: 14px; }
-.credit { border-top: 1px solid var(--line); padding-top: 10px; max-width: 520px; display: flex; flex-direction: column; gap: 2px; }
-.credit .names { font-size: 14px; }
+#bootStatus { font: 0.78rem var(--mono); color: var(--muted); min-height: 1rem; }
+.credit { border-top: 1px solid var(--line); padding-top: 0.7rem; display: flex; flex-direction: column; gap: 0.15rem; }
 .credit .names b { font-weight: 500; }
-.credit .meta { font: 11px var(--mono); color: var(--muted); letter-spacing: 0.04em; }
+.credit .meta { font: 0.78rem var(--mono); color: var(--muted); }
 
-@media (max-width: 1150px) {
-  body { grid-template-columns: 250px minmax(0, 1fr) 0; }
-  #right { display: none; }
-  body.brief-open #right { display: flex; position: fixed; right: 8px; top: 64px; bottom: 170px; width: 318px; z-index: 20; box-shadow: 0 10px 40px rgba(0,0,0,.5); }
-  #bottom { grid-template-columns: 190px minmax(0, 1fr) 220px; }
-  #method { inset: 50px 16px; }
-}
-@media (max-width: 760px) {
-  body { grid-template-columns: 1fr; grid-template-rows: auto 52vh auto auto; overflow-y: auto; height: auto; }
-  #left, #stageWrap, #bottom { grid-column: 1; }
-  #stageWrap { grid-row: 2; } #left { grid-row: 3; } #bottom { grid-row: 4; grid-template-columns: 1fr; }
-  #intro { grid-template-columns: 1fr; padding: 5vh 20px; }
+/* phones and narrow windows: stack everything, map first */
+@media (max-width: 860px) {
+  body { grid-template-columns: 1fr; grid-template-rows: auto auto auto auto; height: auto; overflow-y: auto; }
+  #mapCol { grid-row: 2; height: 62vh; }
+  #bottom { grid-row: 3; }
+  #side { grid-column: 1; grid-row: 4; overflow: visible; }
+  #top .brand { width: 100%; }
+  #top .seg { flex-wrap: wrap; }
+  #top .seg button { font-size: 0.82rem; padding: 0.35rem 0.5rem; }
+  #top .btn { font-size: 0.82rem; padding: 0.35rem 0.55rem; }
+  #sources table { display: block; overflow-x: auto; }
+  #fullBtn { display: none; }
+  #bottom { grid-template-columns: minmax(0, 1fr); }
+  #mapBar { font-size: 0.8rem; }
+  #aqi { margin-left: 0; }
+  #sources { inset: 0.5rem; }
+  #intro { grid-template-columns: 1fr; padding: 5vh 1.2rem; background: rgba(11, 14, 19, 0.88); }
+  body.intro { height: 100%; overflow: hidden; }
 }
 @media (prefers-reduced-motion: reduce) { * { transition: none !important; animation: none !important; } }
 </style>
@@ -202,109 +179,110 @@ body.intro #mapNote { display: none; }
 
 <header id="top" class="panel">
   <div class="brand"><span class="eyebrow">GIS Day 2026 · Lahore</span><b>The Lahore Canyon</b></div>
-  <div class="seg" role="group" aria-label="Study area"><button data-site="walled" aria-pressed="true">Walled City</button><button data-site="dha" aria-pressed="false">DHA Phase 2</button></div>
-  <div class="seg" role="group" aria-label="Day"><button data-day="heat" aria-pressed="true">Hottest day · 10 Jun</button><button data-day="smog" aria-pressed="false">Smog night · 10 Nov</button></div>
-  <button class="btn" id="openMethod">Data &amp; method</button>
-  <button class="btn" id="backIntro">Title</button>
+  <div class="seg" role="group" aria-label="Area"><button data-site="walled" aria-pressed="true">Walled City</button><button data-site="dha" aria-pressed="false">DHA Phase 2</button></div>
+  <div class="seg" role="group" aria-label="Day"><button data-day="heat" aria-pressed="true">Heat · 10 Jun 2026</button><button data-day="smog" aria-pressed="false">Smog · 10 Nov 2026</button></div>
+  <button class="btn" id="tourBtn">Walkthrough</button>
+  <button class="btn" id="openSources">Data sources</button>
+  <button class="btn" id="fullBtn">Full screen</button>
 </header>
 
-<aside id="left" class="panel">
-  <div id="controls">
-    <div><div class="eyebrow">Study area</div><div id="siteName">Walled City</div><div id="siteMeta"></div></div>
-    <div><div class="eyebrow" style="margin-bottom:5px">What the colours show</div>
-      <div class="layers">
-        <button data-layer="temp" aria-pressed="true">Hotter or cooler (model)</button>
-        <button data-layer="sun" aria-pressed="false">Sun or shade</button>
-        <button data-layer="sky" aria-pressed="false">How much sky it sees</button>
-        <button data-layer="dose" aria-pressed="false">Hours of direct sun</button>
-        <button data-layer="vent" aria-pressed="false">How fast smog can clear</button>
-        <button data-layer="prio" aria-pressed="false">Where to act first</button>
-      </div></div>
-    <div class="whatif"><div class="eyebrow" style="margin-bottom:5px">What if</div>
-      <label for="wCool"><input type="checkbox" id="wCool"> Paint roofs white (lime wash)</label>
-      <label for="wShade"><input type="checkbox" id="wShade"> Shade the streets (trees or awnings)</label>
-      <div id="scenStatus">Showing today.</div></div>
-  </div>
-  <div id="tourPanel" aria-live="polite">
+<section id="mapCol">
+  <div id="mapBar" class="panel"><span class="what" id="barWhat"></span><span class="when" id="barWhen"></span><span id="aqi" hidden></span></div>
+  <main id="stageWrap">
+    <canvas id="stage" aria-label="3D map of Lahore"></canvas>
+    <div id="labels"></div>
+    <div id="sunLabel" hidden></div>
+    <div id="northLabel">N ↑</div>
+    <div id="lidLabel" hidden></div>
+  </main>
+</section>
+
+<aside id="side" class="panel">
+  <div class="sec" id="tourBox" aria-live="polite">
     <div class="eyebrow" id="capEye"></div>
-    <div id="capText"></div>
-    <div class="capnav"><span id="tourCount"></span><button class="btn" id="tourPrev">Back</button><button class="btn primary" id="tourNext">Next</button></div>
-    <button class="btn" id="tourExit">Leave the walkthrough and explore</button>
+    <p id="capText"></p>
+    <div class="capnav"><span id="tourCount"></span><button class="btn" id="tourPrev">Back</button><button class="btn primary" id="tourNext">Next</button><button class="btn" id="tourExit">Exit</button></div>
     <div id="yearCard" hidden>
-      <div class="eyebrow">Lahore · Nov 2025 – Nov 2026</div>
       <canvas id="yearChart"></canvas>
-      <div class="yk"><span><i style="background:#ee8a45"></i>Average daily max °C</span><span><i style="background:#d4473f;height:6px;width:6px;border-radius:50%"></i>Hottest day of month</span><span><i style="background:rgba(201,178,138,0.6);height:8px"></i>PM2.5 µg/m³</span></div>
+      <div class="yk"><span><i style="background:#ee8a45"></i>Avg daily max air °C (ERA5)</span><span><i style="background:rgba(201,178,138,0.7);height:0.5rem"></i>PM2.5 µg/m³ (CAMS model)</span></div>
     </div>
   </div>
-</aside>
 
-<main id="stageWrap">
-  <canvas id="stage" aria-label="3D model of surface temperatures in Lahore"></canvas>
-  <div id="labels"></div>
-  <div id="lidLabel" hidden></div>
-  <div id="sunLabel" hidden></div>
-  <div id="northLabel">N ↑</div>
-  <div id="mapNote">Drag to rotate · scroll to zoom · click a building for its floor-by-floor brief</div>
-</main>
-
-<aside id="right" class="panel">
-  <div id="rightDefault">
-    <div><div class="eyebrow" id="keysEye">Key numbers</div><h2 id="keysTitle">Walled City</h2>
-      <p class="sub"><span class="src meas">Measured</span> satellite · <span class="src rean">Weather</span> ERA5/CAMS · <span class="src model">Calculated</span> from building shapes</p></div>
-    <div class="keys" id="keys"></div>
-    <div><div class="eyebrow">Heat season · 10 Jun 2026</div><h2>Where to act first</h2>
-      <p class="sub">Each 40 m block scored 0–100 from how hot the model ranks it and its floor space (more floor space, more people). Click one to fly there.</p></div>
-    <div id="prioList"></div>
-    <div id="prioDetail"></div>
-  </div>
-  <div id="brief" hidden>
-    <div class="bf-head"><div><div class="eyebrow">Building brief · floor by floor</div><div class="bf-title"></div><div class="bf-meta"></div></div><button class="bf-close">Close</button></div>
-    <p class="bf-lead"></p>
-    <div class="eyebrow">Exposed walls · hotter or cooler (model) and hours of sun</div>
+  <div class="sec" id="brief" hidden>
+    <div class="bf-head"><div><div class="eyebrow">Building</div><div class="bf-title"></div><div class="bf-meta"></div></div><button class="btn" id="briefClose">Close</button></div>
+    <div class="bf-grid" id="briefGrid"></div>
+    <div class="eyebrow">Hours of direct sun on each storey's walls</div>
     <canvas id="briefChart"></canvas>
-    <div class="bf-roof"></div>
-    <div class="bf-note">Sun hours and sky share are calculated from the real building heights. The hotter/cooler bars are model estimates, shown as a comparison only.</div>
+    <p class="bf-note" id="briefNote"></p>
+  </div>
+
+  <div class="sec">
+    <div class="eyebrow">Map shows</div>
+    <div class="layers" id="layerBtns">
+      <button data-layer="lst"><span>Ground heat from space</span><span class="tag meas">Measured</span></button>
+      <button data-layer="sun"><span>Sun and shade now</span><span class="tag calc">Calculated</span></button>
+      <button data-layer="hours"><span>Hours of sun in the day</span><span class="tag calc">Calculated</span></button>
+      <button data-layer="sky"><span>Open sky (heat &amp; smog trap)</span><span class="tag calc">Calculated</span></button>
+      <button data-layer="roof"><span>What if roofs were white</span><span class="tag model">Model</span></button>
+    </div>
+    <div class="lg-bar" id="lgBar"></div>
+    <div class="lg-ticks" id="lgTicks"></div>
+    <p class="lg-note" id="lgNote"></p>
+    <p id="whatStatus" hidden></p>
+  </div>
+
+  <div class="sec">
+    <div class="eyebrow">Key numbers · <span id="keysSite">Walled City</span></div>
+    <div id="keys"></div>
+  </div>
+
+  <div class="sec">
+    <div class="eyebrow">Data sources and dates</div>
+    <ul class="src-list">
+      <li><b>Buildings:</b> Google Open Buildings 2.5D, 2023, 4 m (from Sentinel-2 images)</li>
+      <li><b>Ground heat:</b> Landsat 8, 7 Jun 2026 10:35 am, 30 m · MODIS Aqua, 10 Jun 2026, 1 km</li>
+      <li><b>Air temperature, sunshine, wind, mixing height:</b> ERA5 (ECMWF), hourly, Nov 2025 – Nov 2026</li>
+      <li><b>PM2.5 smog:</b> CAMS (Copernicus) model, hourly, Nov 2025 – Nov 2026 · not a ground station</li>
+      <li><b>Sun position:</b> calculated for Lahore for each hour</li>
+      <li><b>Place names:</b> OpenStreetMap</li>
+    </ul>
+    <button class="btn" id="openSources2">All details and links</button>
   </div>
 </aside>
 
 <section id="bottom" class="panel">
-  <div id="readout"></div>
-  <div><div class="tl-head" id="tlHead"></div><canvas id="timeline" aria-label="24-hour chart"></canvas>
-    <div class="timebar"><button class="btn" id="play" aria-pressed="false">Play day</button><label for="hour" class="eyebrow">Hour</label><input type="range" id="hour" min="0" max="23" step="1" value="15"><span id="hourLabel">15:00</span></div></div>
-  <div id="legend"></div>
+  <div id="clock"><b id="hourLabel">15:00</b><span id="dayLabel">10 Jun 2026 · Lahore time</span></div>
+  <div class="tl-head" id="tlHead"></div>
+  <canvas id="timeline" aria-label="Hourly chart for the day"></canvas>
+  <div class="timebar"><button class="btn" id="play" aria-pressed="false">▶ Play the day</button><label for="hour" class="eyebrow">Hour</label><input type="range" id="hour" min="0" max="23" step="1" value="15"></div>
 </section>
 
-<section id="method" class="panel" hidden>
-  <div class="bf-head"><div class="eyebrow">Data &amp; method</div><button class="bf-close">Close</button></div>
-  <h2>How the Lahore Canyon is built</h2>
-  <p>Two 1.2 × 1.2 km areas on a 4 m grid: the Walled City around Rang Mahal, and DHA Phase 2. Every outside wall is cut into storey-high panels, and every roof and street cell is a surface. For each one, the model works out how much open sky it sees, whether it is in direct sun at each hour (by tracing the sun's rays across the 3D buildings), and how hot it gets from sun, air temperature, wind and the heat given off by its surroundings. The "What if" options rerun that calculation in your browser.</p>
-  <h3>Data</h3>
-  <ul>
-    <li>Building heights: Google Open Buildings 2.5D Temporal, 2023 layer, 4 m resolution. <a href="https://developers.google.com/earth-engine/datasets/catalog/GOOGLE_Research_open-buildings-temporal_v1">Dataset</a></li>
-    <li>Surface temperature and vegetation: Landsat 8 Collection 2 Level-2, scene 149/038, 7 Jun 2026 10:35 PKT, via Microsoft Planetary Computer. <a href="https://planetarycomputer.microsoft.com/dataset/landsat-c2-l2">Dataset</a></li>
-    <li>Hourly weather (air temperature, humidity, sunshine, wind, height of the mixing layer): ERA5 reanalysis via the Open-Meteo archive. <a href="https://open-meteo.com/en/docs/historical-weather-api">API</a></li>
-    <li>PM2.5: CAMS air-quality model via Open-Meteo. These are model estimates, not station readings. <a href="https://open-meteo.com/en/docs/air-quality-api">API</a></li>
-    <li>Landmark names: © OpenStreetMap contributors. <a href="https://www.openstreetmap.org/copyright">Licence</a></li>
-  </ul>
-  <h3>Checked against the satellite</h3>
-  <p>The model was compared with two satellites. One setting was tuned against Landsat: how much sunlight surfaces absorb (walls 0.69, roofs 0.81, ground 0.92, typical of brick, plaster and dusty asphalt). Afternoon cooling by rising hot air uses ERA5's boundary-layer height.</p>
-  <table><thead><tr><th>Check</th><th>Area</th><th>Model</th><th>Satellite</th></tr></thead>
-  <tbody><tr><td>Landsat 8, 7 Jun, 10:35 am, 30 m</td><td>Walled City</td><td>51.3 °C</td><td>51.6 °C</td></tr>
-  <tr><td></td><td>DHA Phase 2</td><td>49.1 °C</td><td>50.1 °C</td></tr>
-  <tr><td>MODIS Aqua, 10 Jun, 4:30 am, 1 km</td><td>Walled City</td><td>28.5 °C</td><td>27.1 °C</td></tr>
-  <tr><td></td><td>DHA Phase 2</td><td>28.8 °C</td><td>27.6 °C</td></tr>
-  <tr><td>MODIS Aqua, 10 Jun, 2:48 pm, 1 km</td><td>Walled City</td><td>62.7 °C</td><td>42.3 °C</td></tr>
-  <tr><td></td><td>DHA Phase 2</td><td>60.2 °C</td><td>44.1 °C</td></tr></tbody></table>
-  <p>Morning and night agree within about 1.5 °C. The afternoon does not: the model is far hotter than MODIS. Part of the gap is the sensor (MODIS averages 1 km and also reads about 10 °C below Landsat in the morning), but MODIS also shows surfaces warming only 1–3 °C between morning and afternoon, while the model warms them much more. So the afternoon figures in this app are upper estimates. The patterns (which surfaces, floors and streets are hotter than others) are the reliable part.</p>
-  <h3>What is measured and what is modelled</h3>
-  <p>Every temperature in degrees shown in this app is measured or comes from weather records: Landsat 8 and MODIS for the ground surface, ERA5 for the air. No satellite can measure a single wall or roof, so for those the model is used only to compare: which surfaces, floors and streets run hotter or cooler than others, and by roughly how much. Sun and shade, hours of sun and sky share are calculated directly from the real building heights and the sun's position.</p>
+<section id="sources" class="panel" hidden>
+  <div class="bf-head"><div class="eyebrow">Data sources and method</div><button class="btn" id="sourcesClose">Close</button></div>
+  <h2>Where every number comes from</h2>
+  <table>
+    <thead><tr><th>What</th><th>Source</th><th>Date / period</th><th>Type</th></tr></thead>
+    <tbody>
+      <tr><td>Building footprints and heights</td><td>Google Open Buildings 2.5D Temporal, made by Google Research with AI from Sentinel-2 images. <a href="https://sites.research.google/gr/open-buildings/temporal/">Dataset</a></td><td>2023 layer, 4 m grid</td><td><span class="tag meas">Satellite-derived</span></td></tr>
+      <tr><td>Ground surface temperature and green cover</td><td>Landsat 8 Collection 2 Level-2 (USGS/NASA), scene LC08_L2SP_149038_20260607, via Microsoft Planetary Computer. <a href="https://planetarycomputer.microsoft.com/dataset/landsat-c2-l2">Dataset</a></td><td>7 Jun 2026, 10:35 am, 30 m pixels</td><td><span class="tag meas">Measured</span></td></tr>
+      <tr><td>Ground surface temperature, afternoon and night</td><td>MODIS Aqua MYD11A1 v061 (NASA), via Microsoft Planetary Computer. <a href="https://planetarycomputer.microsoft.com/dataset/modis-11A1-061">Dataset</a></td><td>10 Jun 2026, 2:48 pm and 4:30 am, 1 km pixels</td><td><span class="tag meas">Measured</span></td></tr>
+      <tr><td>Air temperature, humidity, sunshine, wind, mixing height</td><td>ERA5 reanalysis (ECMWF), via Open-Meteo. <a href="https://open-meteo.com/en/docs/historical-weather-api">API</a></td><td>Hourly, 1 Nov 2025 – 10 Nov 2026</td><td><span class="tag meas">Weather record</span></td></tr>
+      <tr><td>PM2.5, PM10, NO₂ (smog)</td><td>CAMS global air-quality model (Copernicus), via Open-Meteo. <a href="https://open-meteo.com/en/docs/air-quality-api">API</a></td><td>Hourly, 1 Nov 2025 – 13 Nov 2026</td><td><span class="tag model">Model, not a station</span></td></tr>
+      <tr><td>Sun position, sun/shade, hours of sun, open sky</td><td>Calculated in this app from the sun's position for Lahore and the building heights above</td><td>10 Jun and 10 Nov 2026, every hour</td><td><span class="tag calc">Calculated</span></td></tr>
+      <tr><td>White-roof estimate</td><td>Surface energy-balance model in this app, checked against Landsat (morning) and MODIS (night)</td><td>10 Jun 2026</td><td><span class="tag model">Model</span></td></tr>
+      <tr><td>Place names</td><td>© OpenStreetMap contributors. <a href="https://www.openstreetmap.org/copyright">Licence</a></td><td>2026</td><td></td></tr>
+    </tbody>
+  </table>
+  <h3>Study areas</h3>
+  <p>Two squares of 1.2 × 1.2 km: the Walled City (Androon Shehr) centred near Rang Mahal, 31.581° N 74.318° E, and DHA Phase 2, 31.473° N 74.405° E. Weather and PM2.5 are for one point in the Walled City and apply to both squares.</p>
+  <h3>What is measured and what is not</h3>
+  <p>Every temperature in degrees comes from a satellite or the ERA5 weather record. Landsat does not give one temperature for Lahore: it measures every 30 m pixel. "Typical" is the middle value of the 1,681 pixels in our square, and "hottest spot" is the highest pixel. No satellite can measure a single wall, so walls take the value of the pixel above them.</p>
+  <p>Sun and shade, hours of sun and open sky are calculated from the building heights and the sun's position. The only model estimate is the white-roof "what if"; it is always marked "Model". PM2.5 comes from the CAMS model, not a ground monitor.</p>
   <h3>Limits</h3>
   <ul>
-    <li>Air temperature and wind come from one 9 km ERA5 cell, the same for both areas. The app maps surface heat, not the air temperature a person feels.</li>
-    <li>Building heights are machine-learning estimates. Lanes narrower than about 4 m are not resolved.</li>
-    <li>Night-time figures are model results; the satellite check is daytime only.</li>
-    <li>"How fast smog can clear" is based on how open each street is to the sky. It is not a pollution simulation.</li>
-    <li>Floor space stands in for residents; no population data was used.</li>
+    <li>Building heights are AI estimates from satellite images, not surveyed. Lanes narrower than about 4 m are not captured.</li>
+    <li>Landsat (7 June) and MODIS (10 June) read differently: MODIS averages 1 km and reads cooler. Both are shown as they were measured.</li>
+    <li>Building heights on the map are stretched 1.5× so they are easier to see.</li>
   </ul>
   <h3>Credits</h3>
   <p>Developed by <b>Muhammad Mehdi</b> &amp; <b>Hussain Ahmad</b>, BS Geography, 7th Semester (Morning), for GIS Day 2026, Lahore.</p>
@@ -315,9 +293,9 @@ body.intro #mapNote { display: none; }
     <div class="eyebrow">GIS Day 2026 · 18 November · Lahore</div>
     <h1>The Lahore Canyon</h1>
     <div class="rule"></div>
-    <div class="tagline"><span class="en">Heat has an address. GIS finds it.</span></div>
-    <p class="lead">A 3D map of every wall, roof and street in Lahore's Walled City, hour by hour through the hottest day of 2026, and again on the worst smog night, compared with DHA.</p>
-    <div class="actions"><button id="startTour" class="primary" disabled>Watch the walkthrough</button><button id="startMap" disabled>Go straight to the map</button></div>
+    <p class="tagline">Heat has an address. GIS finds it.</p>
+    <p class="lead">A 3D map of every building in Lahore's Walled City and DHA, built from open satellite data: measured ground heat, the sun hour by hour on 10 June 2026, and the smog night of 10 November 2026.</p>
+    <div class="actions"><button id="startTour" class="btn primary" disabled>Watch the walkthrough</button><button id="startMap" class="btn" disabled>Go straight to the map</button></div>
     <div id="bootStatus">Loading…</div>
     <div class="credit"><span class="names">Developed by <b>Muhammad Mehdi</b> &amp; <b>Hussain Ahmad</b></span><span class="meta">BS Geography · 7th Semester (Morning) · GIS: Powering Purpose and Innovation</span></div>
   </div>

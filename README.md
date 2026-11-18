@@ -33,3 +33,15 @@ Developed by **Muhammad Mehdi** & **Hussain Ahmad**, BS Geography, 7th Semester 
 - `source/data` — processed input data
 
 Limits are listed in the app under **Data & method**.
+
+## Data and dates used
+
+| What | Source | Date / period | Type |
+|---|---|---|---|
+| Building heights | Google Open Buildings 2.5D Temporal | 2023 layer, 4 m | Satellite-derived |
+| Ground surface temperature, green cover | Landsat 8 C2 L2, scene LC08_L2SP_149038_20260607 | 7 Jun 2026, 10:35 am PKT, 30 m | Measured |
+| Ground surface temperature | MODIS Aqua MYD11A1 v061 | 10 Jun 2026, 2:48 pm and 4:30 am, 1 km | Measured |
+| Air temperature, sunshine, wind, mixing height | ERA5 via Open-Meteo | hourly, 1 Nov 2025 – 10 Nov 2026 | Weather record |
+| PM2.5 | CAMS model via Open-Meteo | hourly, 1 Nov 2025 – 13 Nov 2026 | Model (not a station) |
+| Sun, shade, hours of sun, open sky | Calculated from building heights and sun position | 10 Jun and 10 Nov 2026 | Calculated |
+| White-roof estimate | Energy-balance model in this app | 10 Jun 2026 | Model |
