@@ -228,9 +228,10 @@ function recolor() {
     for (let e = 0; e < nG; e++) setQuadColor(colors, nR + e, RAMP.hours(sunHours(L.g, nG, e) / 14), 1);
     for (let e = 0; e < nW; e++) setQuadColor(colors, nR + nG + e, RAMP.hours(sunHours(L.w, nW, e) / 14), 1);
   } else if (layer === 'sky') {
-    for (let e = 0; e < nR; e++) setQuadColor(colors, e, GREY, 0.8);
+    const BLD = [170, 176, 188];
+    for (let e = 0; e < nR; e++) setQuadColor(colors, e, BLD, 1);
     for (let e = 0; e < nG; e++) setQuadColor(colors, nR + e, RAMP.sky(site.fg[e]), 1);
-    for (let e = 0; e < nW; e++) setQuadColor(colors, nR + nG + e, GREY, 0.55);
+    for (let e = 0; e < nW; e++) setQuadColor(colors, nR + nG + e, BLD, 0.75);
   } else if (layer === 'photo') {
     const P = site.photo[state.day], px = (i) => [P[i * 4], P[i * 4 + 1], P[i * 4 + 2]];
     for (let e = 0; e < nR; e++) setQuadColor(colors, e, px(geom.roofs[e]), 1.15);
@@ -276,7 +277,7 @@ const LAYERS = {
   hours: { what: 'Hours of sun in the day', tag: 'calc', when: () => `${DAYNAME[state.day]}, whole day · calculated`,
     note: () => `How many hours each roof, wall and street gets direct sun on this day. Narrow lanes get far fewer hours than roofs.` },
   sky: { what: 'Open sky', tag: 'calc', when: () => `calculated from building heights`,
-    note: () => `How much of the sky each street can see. Dark purple lanes are enclosed: they hold heat at night and smoke clears from them slowly. Roofs and walls are grey.` },
+    note: () => `How much of the sky each street can see. Only the streets and open ground are coloured. Dark purple lanes are enclosed: they hold heat at night and smoke clears from them slowly. Buildings are plain grey (no data on them in this layer).` },
   photo: { what: 'Satellite photo', tag: 'meas', when: () => `Sentinel-2 · ${PKG.photoMeta[state.day].date}, about 10:40 am · 10 m pixels`,
     note: () => `A real true-colour photo from the European Sentinel-2 satellite, ${PKG.photoMeta[state.day].date}, draped over the buildings. Use it to check the other layers: compare where the trees, roads and open ground are with the heat colours.` },
   roof: { what: 'What if roofs were white', tag: 'model', when: () => `10 Jun 2026, ${hhmm(state.hour)} · model estimate, not a measurement`,
@@ -537,7 +538,7 @@ function renderLabels() {
   if (SI.up && sunBall.visible) { v.copy(sunBall.position).project(camera); const ok = v.z < 1 && Math.abs(v.x) < 0.95 && Math.abs(v.y) < 0.95; sl.hidden = !ok; if (ok) { sl.textContent = `Sun · ${SI.deg}° high`; sl.style.transform = `translate(${(v.x + 1) / 2 * w + 30}px, ${(1 - v.y) / 2 * h - 8}px)`; } } else sl.hidden = true;
   const nl = $('#northLabel'); v.set(0, 0, -HALF - 40).project(camera); nl.hidden = !(v.z < 1 && Math.abs(v.x) < 1 && Math.abs(v.y) < 1); nl.style.transform = `translate(${(v.x + 1) / 2 * w - 8}px, ${(1 - v.y) / 2 * h - 8}px)`;
   const ll = $('#lidLabel');
-  if (lid.visible) { v.set(-HALF + 40, lid.position.y, HALF - 40).project(camera); ll.hidden = !(v.z < 1); ll.style.transform = `translate(${(v.x + 1) / 2 * w}px, ${(1 - v.y) / 2 * h}px)`; ll.textContent = `Smog lid: air mixes only up to ${fmt(PKG.days.smog.forc.boundary_layer_height[state.hour], 0)} m`; }
+  if (lid.visible) { v.set(-HALF + 40, lid.position.y, HALF - 40).project(camera); ll.hidden = !(v.z < 1); ll.style.transform = `translate(${clamp((v.x + 1) / 2 * w, 8, w - 340)}px, ${clamp((1 - v.y) / 2 * h, 30, h - 10)}px)`; ll.textContent = `Smog lid: air mixes only up to ${fmt(PKG.days.smog.forc.boundary_layer_height[state.hour], 0)} m`; }
   else ll.hidden = true;
 }
 
