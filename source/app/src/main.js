@@ -61,6 +61,12 @@ async function loadSite(key) {
     const i = Math.floor((L.gy1 - (ymax - CELL * r - 2)) / 30), j = Math.floor((xmin + CELL * c + 2 - L.gx0) / 30);
     site.lst[r * N + c] = L.vals[i * L.W + j] / 10 + 40;
   }
+  site.photo = {};
+  for (const d of ['heat', 'smog']) {
+    const im = new Image(); im.src = 'data:image/jpeg;base64,' + PKG.photo[d + '_' + key]; await im.decode();
+    const cv = document.createElement('canvas'); cv.width = cv.height = N; const g = cv.getContext('2d'); g.drawImage(im, 0, 0, N, N);
+    site.photo[d] = g.getImageData(0, 0, N, N).data;
+  }
   const hs = []; let built = 0; for (let i = 0; i < N * N; i++) if (H[i] > 0) { built++; hs.push(H[i]); }
   hs.sort((a, b) => a - b);
   site.builtShare = built / (N * N); site.medH = hs[hs.length >> 1]; site.maxH = hs[hs.length - 1];
@@ -225,6 +231,11 @@ function recolor() {
     for (let e = 0; e < nR; e++) setQuadColor(colors, e, GREY, 0.8);
     for (let e = 0; e < nG; e++) setQuadColor(colors, nR + e, RAMP.sky(site.fg[e]), 1);
     for (let e = 0; e < nW; e++) setQuadColor(colors, nR + nG + e, GREY, 0.55);
+  } else if (layer === 'photo') {
+    const P = site.photo[state.day], px = (i) => [P[i * 4], P[i * 4 + 1], P[i * 4 + 2]];
+    for (let e = 0; e < nR; e++) setQuadColor(colors, e, px(geom.roofs[e]), 1.15);
+    for (let e = 0; e < nG; e++) setQuadColor(colors, nR + e, px(geom.ground[e]), 1.15);
+    for (let e = 0; e < nW; e++) setQuadColor(colors, nR + nG + e, px(W.cell[e]), 0.8);
   } else if (layer === 'roof') {
     const B = SIM[state.site].base, C = SIM[state.site].cool;
     const ok = B && B.Tr && C && C.Tr;
@@ -266,6 +277,8 @@ const LAYERS = {
     note: () => `How many hours each roof, wall and street gets direct sun on this day. Narrow lanes get far fewer hours than roofs.` },
   sky: { what: 'Open sky', tag: 'calc', when: () => `calculated from building heights`,
     note: () => `How much of the sky each street can see. Dark purple lanes are enclosed: they hold heat at night and smoke clears from them slowly. Roofs and walls are grey.` },
+  photo: { what: 'Satellite photo', tag: 'meas', when: () => `Sentinel-2 · ${PKG.photoMeta[state.day].date}, about 10:40 am · 10 m pixels`,
+    note: () => `A real true-colour photo from the European Sentinel-2 satellite, ${PKG.photoMeta[state.day].date}, draped over the buildings. Use it to check the other layers: compare where the trees, roads and open ground are with the heat colours.` },
   roof: { what: 'What if roofs were white', tag: 'model', when: () => `10 Jun 2026, ${hhmm(state.hour)} · model estimate, not a measurement`,
     note: () => `How much cooler each roof would be with white lime wash, estimated by the model. Bright blue = much cooler. Streets and walls are grey.` }
 };
@@ -275,6 +288,7 @@ function updateLegend() {
   if (l === 'lst') { bar = rampCSS(RAMP.lst); ticks = [47, 49, 51, 53, 55].map((v, i) => [i * 25, v + ' °C']); }
   else if (l === 'sun') { bar = 'linear-gradient(90deg,#3e5278 0 50%,#ffd68c 50% 100%)'; ticks = [[0, 'shade'], [100, 'direct sun']]; }
   else if (l === 'hours') { bar = rampCSS(RAMP.hours); ticks = [[0, '0 h'], [50, '7 h'], [100, '14 h']]; }
+  else if (l === 'photo') { bar = 'linear-gradient(90deg,#5d6b45,#a39780,#c9bfae)'; ticks = [[0, 'trees'], [50, 'roofs, roads'], [100, 'bright roofs']]; }
   else if (l === 'sky') { bar = rampCSS(RAMP.sky); ticks = [[0, '0%'], [50, '50%'], [100, '100% open']]; }
   else { bar = rampCSS(RAMP.cool); ticks = [[0, '0 °C'], [50, '10 °C'], [100, '20 °C cooler']]; }
   $('#lgBar').style.background = bar;
@@ -283,7 +297,7 @@ function updateLegend() {
 }
 function updateBar() {
   const L = LAYERS[state.layer];
-  $('#barWhat').innerHTML = `${L.what} <span class="tag ${L.tag}">${{ meas: 'Measured', calc: 'Calculated', model: 'Model' }[L.tag]}</span>`;
+  $('#barWhat').innerHTML = `${L.what} <span class="tag ${L.tag}">${(state.layer === 'photo' ? 'Photo' : { meas: 'Measured', calc: 'Calculated', model: 'Model' }[L.tag])}</span>`;
   $('#barWhen').textContent = L.when();
   const a = $('#aqi');
   if (state.day === 'smog') {
@@ -595,27 +609,29 @@ function buildScenes() {
   const ex = W.meta.example, exB = buildingFacts(W, blob(W, ex.r * N + ex.c));
   const exX = (ex.c - N / 2) * CELL, exZ = (ex.r - N / 2) * CELL, lo = exB.rows[0], top = exB.rows[exB.rows.length - 1];
   return [
-    { eye: '1 · A year in Lahore', site: 'walled', day: 'heat', hour: 15, layer: 'lst', fit: 1.15, year: true,
+    { eye: 'A year in Lahore', site: 'walled', day: 'heat', hour: 15, layer: 'lst', fit: 1.15, year: true,
       cap: `From November 2025 to November 2026 the air in Lahore reached 40 °C or more on ${Y.daysAbove40} days (ERA5 weather record). The hottest was 10 June 2026: ${fmt(Y.hottestMax, 0)} °C. In winter the danger is smog.` },
-    { eye: '2 · Measured from space', site: 'walled', day: 'heat', hour: 10, layer: 'lst', fit: 1, rise: true,
+    { eye: 'Measured from space', site: 'walled', day: 'heat', hour: 10, layer: 'lst', fit: 1, rise: true,
       cap: `The Landsat 8 satellite measured this 1.2 km square of the Walled City at 10:35 am on 7 June 2026. Typical ground temperature: ${fmt(ws.lstMed)} °C. Hottest 30 m spot: ${fmt(ws.lstMax)} °C.` },
-    { eye: '3 · Two cities', site: 'dha', day: 'heat', hour: 10, layer: 'lst', fit: 1, rise: true,
+    { eye: 'Check it with a photo', site: 'walled', day: 'heat', hour: 10, layer: 'photo', fit: 1,
+      cap: `The same square photographed by the Sentinel-2 satellite on 5 June 2026. The green garden strip along the old city wall near Lohari Gate lines up with the cooler blue squares on the heat map; the hottest red squares are dense rooftops with no trees.` },
+    { eye: 'Two cities', site: 'dha', day: 'heat', hour: 10, layer: 'lst', fit: 1, rise: true,
       cap: `Same satellite, same moment, DHA Phase 2: typical ${fmt(ds.lstMed)} °C, ${fmt(ws.lstMed - ds.lstMed)} °C cooler than the Walled City. Trees and grass cover ${Math.round(ds.greenShare * 100)}% of DHA's open ground, but only ${Math.round(ws.greenShare * 100)}% in the Walled City.` },
-    { eye: '4 · Where the sun reaches', site: 'walled', day: 'heat', hour: 17, layer: 'sun', fit: 0.5, fitAz: 0.15, fitEl: 0.8,
+    { eye: 'Where the sun reaches', site: 'walled', day: 'heat', hour: 17, layer: 'sun', fit: 0.5, fitAz: 0.15, fitEl: 0.8,
       cap: `5 pm on 10 June 2026, the sun ${Math.round(PKG.days.heat.alt[17] * 180 / Math.PI)}° high in the west. Walls facing the sun are yellow; streets and walls in shadow are blue. Calculated from the real building heights and the sun's position.` },
-    { eye: '5 · Narrow lanes', site: 'walled', day: 'heat', hour: 15, layer: 'hours', fit: 0.9,
+    { eye: 'Narrow lanes', site: 'walled', day: 'heat', hour: 15, layer: 'hours', fit: 0.9,
       cap: `Over the whole day, the Walled City's streets got ${fmt(ws.streetSunH)} hours of direct sun and its roofs ${fmt(ws.roofSunH)}. DHA's open streets got ${fmt(ds.streetSunH)} hours. Narrow lanes shade themselves.` },
-    { eye: '6 · One building', site: 'walled', day: 'heat', hour: 15, layer: 'sun', cam: [[exX + 120, 130, exZ + 150], [exX, 30, exZ]], brief: ex,
+    { eye: 'One building', site: 'walled', day: 'heat', hour: 15, layer: 'sun', cam: [[exX + 120, 130, exZ + 150], [exX, 30, exZ]], brief: ex,
       cap: `${ex.name}: about ${exB.height} m tall. Its lowest exposed walls get ${fmt(lo.sun)} hours of sun, its top walls ${fmt(top.sun)}. Landsat measured ${fmt(exB.lst)} °C on its roof.` },
-    { eye: '7 · Night', site: 'walled', day: 'heat', hour: 4, layer: 'sky', fit: 0.9,
+    { eye: 'Night', site: 'walled', day: 'heat', hour: 4, layer: 'sky', fit: 0.9,
       cap: `At 4:30 am on 10 June the MODIS satellite measured the ground at ${fmt(M.walled.modisNight)} °C, while the air was about ${fmt(PKG.days.heat.forc.temperature_2m[4], 0)} °C. Surfaces open to the sky cool fastest. The dark lanes see only ${Math.round(ws.skyMed * 100)}% of the sky (DHA streets: ${Math.round(ds.skyMed * 100)}%).` },
-    { eye: '8 · What if', site: 'walled', day: 'heat', hour: 15, layer: 'roof', fit: 0.9,
+    { eye: 'What if', site: 'walled', day: 'heat', hour: 15, layer: 'roof', fit: 0.9,
       cap: `A model estimate, not a measurement: paint every roof white with lime wash and the roofs run much cooler at 3 pm, but the streets below barely change. Each surface needs its own fix.` },
-    { eye: '9 · Smog night', site: 'walled', day: 'smog', hour: 22, layer: 'sky', cam: [[-560, 300, 640], [-60, 10, 60]],
+    { eye: 'Smog night', site: 'walled', day: 'smog', hour: 22, layer: 'sky', cam: [[-560, 300, 640], [-60, 10, 60]],
       cap: `10 November 2026, 10 pm. PM2.5 ${fmt(fs.pm2_5[22], 0)} µg/m³ (CAMS model): "${aqiOf(fs.pm2_5[22]).name}". The air could mix only up to ${fmt(fs.boundary_layer_height[22], 0)} m (ERA5), about rooftop height. The smoke had nowhere to go.` },
-    { eye: '10 · Trapped', site: 'walled', day: 'smog', hour: 22, layer: 'sky', fit: 1,
+    { eye: 'Trapped', site: 'walled', day: 'smog', hour: 22, layer: 'sky', fit: 1,
       cap: `Under that lid, streets that see more sky clear faster. The Walled City's lanes see ${Math.round(ws.skyMed * 100)}% of the sky, DHA's streets ${Math.round(ds.skyMed * 100)}%. Every day of the past year, PM2.5 was above the WHO safe limit.` },
-    { eye: '11 · GIS', site: 'walled', day: 'heat', hour: 15, layer: 'lst', fit: 1,
+    { eye: 'GIS', site: 'walled', day: 'heat', hour: 15, layer: 'lst', fit: 1,
       cap: `Heat has an address. GIS finds it: satellites, weather records and building heights on one map show which streets and buildings need help first. Developed by Muhammad Mehdi & Hussain Ahmad.` }
   ];
 }
@@ -628,7 +644,7 @@ async function startTour() {
 }
 async function showScene(i) {
   sceneIdx = clamp(i, 0, SCENES.length - 1); const S = SCENES[sceneIdx];
-  $('#capEye').textContent = S.eye; $('#capText').textContent = S.cap; $('#tourCount').textContent = `${sceneIdx + 1} / ${SCENES.length}`;
+  $('#capEye').textContent = `${sceneIdx + 1} · ${S.eye}`; $('#capText').textContent = S.cap; $('#tourCount').textContent = `${sceneIdx + 1} / ${SCENES.length}`;
   $('#tourNext').textContent = sceneIdx === SCENES.length - 1 ? 'Finish' : 'Next';
   $('#yearCard').hidden = !S.year; if (S.year) requestAnimationFrame(() => drawYear($('#yearChart')));
   closeBrief(); stopPlay();

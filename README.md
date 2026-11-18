@@ -40,6 +40,7 @@ Limits are listed in the app under **Data & method**.
 |---|---|---|---|
 | Building heights | Google Open Buildings 2.5D Temporal | 2023 layer, 4 m | Satellite-derived |
 | Ground surface temperature, green cover | Landsat 8 C2 L2, scene LC08_L2SP_149038_20260607 | 7 Jun 2026, 10:35 am PKT, 30 m | Measured |
+| True-colour satellite photo | Sentinel-2 L2A (ESA Copernicus) | 5 Jun 2026 and 7 Nov 2026, 10 m | Photo |
 | Ground surface temperature | MODIS Aqua MYD11A1 v061 | 10 Jun 2026, 2:48 pm and 4:30 am, 1 km | Measured |
 | Air temperature, sunshine, wind, mixing height | ERA5 via Open-Meteo | hourly, 1 Nov 2025 – 10 Nov 2026 | Weather record |
 | PM2.5 | CAMS model via Open-Meteo | hourly, 1 Nov 2025 – 13 Nov 2026 | Model (not a station) |

@@ -220,6 +220,7 @@ body.intro #northLabel, body.intro #sunLabel { display: none; }
     <div class="eyebrow">Map shows</div>
     <div class="layers" id="layerBtns">
       <button data-layer="lst"><span>Ground heat from space</span><span class="tag meas">Measured</span></button>
+      <button data-layer="photo"><span>Satellite photo (to check)</span><span class="tag meas">Photo</span></button>
       <button data-layer="sun"><span>Sun and shade now</span><span class="tag calc">Calculated</span></button>
       <button data-layer="hours"><span>Hours of sun in the day</span><span class="tag calc">Calculated</span></button>
       <button data-layer="sky"><span>Open sky (heat &amp; smog trap)</span><span class="tag calc">Calculated</span></button>
@@ -241,6 +242,7 @@ body.intro #northLabel, body.intro #sunLabel { display: none; }
     <ul class="src-list">
       <li><b>Buildings:</b> Google Open Buildings 2.5D, 2023, 4 m (from Sentinel-2 images)</li>
       <li><b>Ground heat:</b> Landsat 8, 7 Jun 2026 10:35 am, 30 m · MODIS Aqua, 10 Jun 2026, 1 km</li>
+      <li><b>Satellite photo:</b> Sentinel-2 (ESA Copernicus), 5 Jun 2026 and 7 Nov 2026, 10 m</li>
       <li><b>Air temperature, sunshine, wind, mixing height:</b> ERA5 (ECMWF), hourly, Nov 2025 – Nov 2026</li>
       <li><b>PM2.5 smog:</b> CAMS (Copernicus) model, hourly, Nov 2025 – Nov 2026 · not a ground station</li>
       <li><b>Sun position:</b> calculated for Lahore for each hour</li>
@@ -265,6 +267,7 @@ body.intro #northLabel, body.intro #sunLabel { display: none; }
     <tbody>
       <tr><td>Building footprints and heights</td><td>Google Open Buildings 2.5D Temporal, made by Google Research with AI from Sentinel-2 images. <a href="https://sites.research.google/gr/open-buildings/temporal/">Dataset</a></td><td>2023 layer, 4 m grid</td><td><span class="tag meas">Satellite-derived</span></td></tr>
       <tr><td>Ground surface temperature and green cover</td><td>Landsat 8 Collection 2 Level-2 (USGS/NASA), scene LC08_L2SP_149038_20260607, via Microsoft Planetary Computer. <a href="https://planetarycomputer.microsoft.com/dataset/landsat-c2-l2">Dataset</a></td><td>7 Jun 2026, 10:35 am, 30 m pixels</td><td><span class="tag meas">Measured</span></td></tr>
+      <tr><td>True-colour satellite photo</td><td>Sentinel-2 Level-2A (ESA Copernicus), scenes S2C_MSIL2A_20260605T053641_T43RDQ and S2B_MSIL2A_20261107T054029_T43RDQ, via Microsoft Planetary Computer. Chosen as the clearest images (cloud under 0.01%) that fully cover both squares closest to 7 June and 10 November 2026. <a href="https://planetarycomputer.microsoft.com/dataset/sentinel-2-l2a">Dataset</a></td><td>5 Jun 2026 and 7 Nov 2026, about 10:40 am, 10 m pixels</td><td><span class="tag meas">Photo</span></td></tr>
       <tr><td>Ground surface temperature, afternoon and night</td><td>MODIS Aqua MYD11A1 v061 (NASA), via Microsoft Planetary Computer. <a href="https://planetarycomputer.microsoft.com/dataset/modis-11A1-061">Dataset</a></td><td>10 Jun 2026, 2:48 pm and 4:30 am, 1 km pixels</td><td><span class="tag meas">Measured</span></td></tr>
       <tr><td>Air temperature, humidity, sunshine, wind, mixing height</td><td>ERA5 reanalysis (ECMWF), via Open-Meteo. <a href="https://open-meteo.com/en/docs/historical-weather-api">API</a></td><td>Hourly, 1 Nov 2025 – 10 Nov 2026</td><td><span class="tag meas">Weather record</span></td></tr>
       <tr><td>PM2.5, PM10, NO₂ (smog)</td><td>CAMS global air-quality model (Copernicus), via Open-Meteo. <a href="https://open-meteo.com/en/docs/air-quality-api">API</a></td><td>Hourly, 1 Nov 2025 – 13 Nov 2026</td><td><span class="tag model">Model, not a station</span></td></tr>
